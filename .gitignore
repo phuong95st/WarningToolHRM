@@ -10,3 +10,4 @@ temp/
 *.lnk
 config.properties.local
 *.local
+*.log
