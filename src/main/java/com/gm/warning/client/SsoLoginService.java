@@ -7,7 +7,11 @@ import com.microsoft.playwright.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class SsoLoginService {
@@ -32,17 +36,19 @@ public class SsoLoginService {
                 config.getMicrosoftUsername());
         AtomicReference<String> capturedToken = new AtomicReference<>();
 
-        try (Playwright playwright = Playwright.create()) {
+        Map<String, String> env = new java.util.HashMap<>();
+        if (System.getenv() != null) {
+            env.putAll(System.getenv());
+        }
+        env.put("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1");
+        Playwright.CreateOptions createOptions = new Playwright.CreateOptions().setEnv(env);
+
+        try (Playwright playwright = Playwright.create(createOptions)) {
             BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                     .setHeadless(config.isBrowserHeadless());
 
             if (config.getBrowserChannel() != null && !config.getBrowserChannel().isBlank()) {
-                try {
-                    options.setChannel(config.getBrowserChannel());
-                } catch (Exception e) {
-                    log.warn("Browser channel '{}' không khả dụng, chuyển về mặc định: {}",
-                            config.getBrowserChannel(), e.getMessage());
-                }
+                options.setChannel(config.getBrowserChannel());
             }
 
             BrowserContext context = null;
@@ -52,13 +58,20 @@ public class SsoLoginService {
                         options
                 );
             } catch (Exception e) {
-                log.warn("Không thể mở browser persistent context với channel {}, chuyển sang Chromium tiêu chuẩn: {}",
+                log.warn("Không thể mở browser persistent context với channel {}, thử tìm file thực thi trên hệ thống: {}",
                         config.getBrowserChannel(), e.getMessage());
-                options.setChannel((String) null);
-                context = playwright.chromium().launchPersistentContext(
-                        Paths.get(config.getBrowserUserDataDir()),
-                        options
-                );
+                Path systemBrowser = findSystemBrowserPath();
+                if (systemBrowser != null) {
+                    log.info("Sử dụng trình duyệt hệ thống tại: {}", systemBrowser);
+                    options.setChannel((String) null);
+                    options.setExecutablePath(systemBrowser);
+                    context = playwright.chromium().launchPersistentContext(
+                            Paths.get(config.getBrowserUserDataDir()),
+                            options
+                    );
+                } else {
+                    throw e;
+                }
             }
 
             context.setDefaultTimeout(30000);
@@ -232,5 +245,29 @@ public class SsoLoginService {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    private Path findSystemBrowserPath() {
+        String localAppData = System.getenv("LOCALAPPDATA");
+        String[] candidatePaths = {
+                "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+                localAppData != null ? localAppData + "\\Microsoft\\Edge\\Application\\msedge.exe" : null,
+                "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+                localAppData != null ? localAppData + "\\Google\\Chrome\\Application\\chrome.exe" : null
+        };
+        for (String p : candidatePaths) {
+            if (p != null) {
+                try {
+                    Path path = Paths.get(p);
+                    if (Files.isRegularFile(path)) {
+                        return path;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return null;
     }
 }

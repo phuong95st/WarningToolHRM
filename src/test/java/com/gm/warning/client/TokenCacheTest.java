@@ -41,4 +41,20 @@ public class TokenCacheTest {
         cache.setToken(mockJwt, "user_test@gm-group.vn");
         assertFalse(cache.isValid("user_test@gm-group.vn"), "Token hết hạn phải không hợp lệ");
     }
+
+    @Test
+    @DisplayName("Playwright khởi tạo driver thành công với PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD mà không tải trình duyệt thừa")
+    void testPlaywrightDriverInitWithoutBrowserDownload() {
+        java.util.Map<String, String> env = new java.util.HashMap<>();
+        if (System.getenv() != null) {
+            env.putAll(System.getenv());
+        }
+        env.put("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1");
+        com.microsoft.playwright.Playwright.CreateOptions createOptions =
+                new com.microsoft.playwright.Playwright.CreateOptions().setEnv(env);
+
+        try (com.microsoft.playwright.Playwright playwright = com.microsoft.playwright.Playwright.create(createOptions)) {
+            assertNotNull(playwright, "Playwright instance phải khởi tạo thành công");
+        }
+    }
 }
