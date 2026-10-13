@@ -2,8 +2,8 @@ package com.gm.warning.notification;
 
 public class TelegramTemplate {
 
-    // Đường gạch ngang 22 ký tự '━', phủ 100% độ rộng bong bóng chat trên điện thoại, tuyệt đối không bị rớt dòng
-    public static final String SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━";
+    // Đường gạch ngang 16 ký tự '━', hiển thị gọn gàng, không bị tràn dòng
+    public static final String SEPARATOR = "━━━━━━━━━━━━━━━━";
 
     /**
      * Thông báo xác nhận Check-in buổi sáng thành công
