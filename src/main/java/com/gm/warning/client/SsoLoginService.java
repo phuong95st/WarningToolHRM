@@ -43,6 +43,14 @@ public class SsoLoginService {
         env.put("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1");
         Playwright.CreateOptions createOptions = new Playwright.CreateOptions().setEnv(env);
 
+        Path userDataPath = Paths.get(config.getBrowserUserDataDir()).toAbsolutePath();
+        try {
+            Files.deleteIfExists(userDataPath.resolve("SingletonLock"));
+            Files.deleteIfExists(userDataPath.resolve("SingletonSocket"));
+            Files.deleteIfExists(userDataPath.resolve("SingletonCookie"));
+        } catch (Exception ignored) {
+        }
+
         try (Playwright playwright = Playwright.create(createOptions)) {
             BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
                     .setHeadless(config.isBrowserHeadless());
@@ -54,7 +62,7 @@ public class SsoLoginService {
             BrowserContext context = null;
             try {
                 context = playwright.chromium().launchPersistentContext(
-                        Paths.get(config.getBrowserUserDataDir()),
+                        userDataPath,
                         options
                 );
             } catch (Exception e) {
@@ -66,7 +74,7 @@ public class SsoLoginService {
                     options.setChannel((String) null);
                     options.setExecutablePath(systemBrowser);
                     context = playwright.chromium().launchPersistentContext(
-                            Paths.get(config.getBrowserUserDataDir()),
+                            userDataPath,
                             options
                     );
                 } else {
@@ -78,10 +86,10 @@ public class SsoLoginService {
 
             // Intercept outgoing HTTP requests to capture Authorization Bearer header
             context.onRequest(request -> {
-                String authHeader = request.headers().get("authorization");
-                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String authHeader = request.headerValue("authorization");
+                if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
                     String token = authHeader.substring(7).trim();
-                    if (!token.isBlank() && token.contains(".")) {
+                    if (isLikelyJwtAccessToken(token)) {
                         capturedToken.set(token);
                         log.info("Chặn bắt thành công Bearer token từ request: {}", request.url());
                     }
@@ -96,8 +104,10 @@ public class SsoLoginService {
                         JsonNode json = mapper.readTree(text);
                         if (json.has("access_token")) {
                             String token = json.get("access_token").asText();
-                            capturedToken.set(token);
-                            log.info("Chặn bắt thành công access_token từ Keycloak token endpoint");
+                            if (isLikelyJwtAccessToken(token)) {
+                                capturedToken.set(token);
+                                log.info("Chặn bắt thành công access_token từ Keycloak token endpoint");
+                            }
                         }
                     } catch (Exception ignored) {
                     }
@@ -118,43 +128,46 @@ public class SsoLoginService {
             }
 
             // Wait and inspect navigation flow
-            for (int i = 0; i < 20; i++) {
+            for (int i = 0; i < 25; i++) {
                 if (capturedToken.get() != null) {
                     break;
                 }
 
                 String currentUrl = page.url();
-                log.debug("URL trang hiện tại [bước {}]: {}", i, currentUrl);
+                String title = "";
+                try {
+                    title = page.title();
+                } catch (Exception ignored) {}
+                log.info("URL trang [bước {}]: {} | Tiêu đề: [{}]", i + 1, currentUrl, title);
 
-                // Check if on Keycloak login page with social login buttons
-                if (currentUrl.contains("auth.gm-group.vn") || currentUrl.contains("/openid-connect/auth")) {
-                    try {
-                        Locator msButton = page.locator("a:has-text('Microsoft'), a:has-text('Azure'), button:has-text('Microsoft'), #social-microsoft, #zocial-microsoft");
-                        if (msButton.count() > 0 && msButton.first().isVisible()) {
-                            log.info("Phát hiện nút đăng nhập Microsoft trên Keycloak, đang nhấn...");
-                            msButton.first().click();
-                            page.waitForTimeout(2000);
+                // Check cookies for token (ignore Keycloak internal flow cookies like KC_RESTART)
+                try {
+                    for (com.microsoft.playwright.options.Cookie c : context.cookies()) {
+                        if (c.name.startsWith("KC_") || c.name.startsWith("KEYCLOAK_") || c.name.startsWith("_ga")) {
+                            continue;
                         }
-                    } catch (Exception ignored) {
+                        if (isLikelyJwtAccessToken(c.value)) {
+                            capturedToken.set(c.value);
+                            log.info("Chặn bắt thành công JWT token từ Cookie: {}", c.name);
+                            break;
+                        }
                     }
+                } catch (Exception ignored) {}
+                if (capturedToken.get() != null) {
+                    break;
                 }
 
-                // Check if on Microsoft login page
+                // 1. Check if on Microsoft login page
                 if (currentUrl.contains("login.microsoftonline.com") || currentUrl.contains("login.live.com")) {
                     handleMicrosoftLogin(page);
                 }
-
-                // If already on HRM dashboard, try to trigger a query or evaluate token
-                if (currentUrl.contains("hrm.gm-group.vn")) {
-                    try {
-                        Object tokenObj = page.evaluate("() => window.Xu ? window.Xu.token : (localStorage.getItem('token') || sessionStorage.getItem('token'))");
-                        if (tokenObj != null && tokenObj.toString().contains(".")) {
-                            capturedToken.set(tokenObj.toString());
-                            log.info("Đọc được token thành công từ ngữ cảnh trang web");
-                            break;
-                        }
-                    } catch (Exception ignored) {
-                    }
+                // 2. Check if on Keycloak login page (strictly matching auth domain)
+                else if (currentUrl.contains("://auth.gm-group.vn")) {
+                    handleKeycloakLogin(page);
+                }
+                // 3. If on HRM web page
+                else if (currentUrl.contains("://hrm.gm-group.vn")) {
+                    handleHrmPage(page, capturedToken);
                 }
 
                 page.waitForTimeout(2000);
@@ -185,11 +198,93 @@ public class SsoLoginService {
         }
     }
 
+    private void handleKeycloakLogin(Page page) {
+        try {
+            String bodyText = "";
+            try {
+                bodyText = page.locator("body").innerText().replace("\n", " ").replaceAll("\\s+", " ").trim();
+                if (bodyText.length() > 300) bodyText = bodyText.substring(0, 300);
+            } catch (Exception ignored) {}
+            log.info("Nội dung hiển thị trên trang Keycloak: [{}]", bodyText);
+
+            Locator feedback = page.locator("#kc-feedback-text, .alert-error, .alert-danger, .error-message");
+            if (feedback.count() > 0 && feedback.first().isVisible()) {
+                log.warn("[BÁO LỖI TỪ KEYCLOAK] {}", feedback.first().innerText());
+            }
+
+            // Click social identity provider (GM Account / Microsoft)
+            Locator msButton = page.locator("a:has-text('GM Account'), button:has-text('GM Account'), #social-gm-account, #zocial-gm-account, a:has-text('Microsoft'), button:has-text('Microsoft'), #social-microsoft, #zocial-microsoft, .zocial.microsoft");
+            if (msButton.count() > 0 && msButton.first().isVisible()) {
+                log.info("Phát hiện nút đăng nhập GM Account / Microsoft trên Keycloak, đang nhấn: [{}]...", msButton.first().innerText());
+                msButton.first().click();
+                page.waitForTimeout(3000);
+            } else {
+                Locator kcUsername = page.locator("#username, input[name='username']");
+                Locator kcPassword = page.locator("#password, input[name='password']");
+                if (kcUsername.count() > 0 && kcUsername.first().isVisible() && kcPassword.count() > 0 && kcPassword.first().isVisible()) {
+                    log.info("Phát hiện form đăng nhập trực tiếp Keycloak, đang điền tài khoản...");
+                    kcUsername.first().fill(config.getMicrosoftUsername());
+                    kcPassword.first().fill(config.getMicrosoftPassword());
+                    Locator loginSubmit = page.locator("#kc-login, input[type='submit'], button[type='submit']");
+                    if (loginSubmit.count() > 0) {
+                        loginSubmit.first().click();
+                        page.waitForTimeout(3000);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Ngoại lệ khi thao tác trang Keycloak: {}", e.getMessage());
+        }
+    }
+
+    private void handleHrmPage(Page page, AtomicReference<String> capturedToken) {
+        try {
+            // Check if there is a login button needing click
+            Locator loginBtn = page.locator("a:has-text('Đăng nhập'), button:has-text('Đăng nhập'), a:has-text('Login'), button:has-text('Login'), a:has-text('Sign in'), button:has-text('Sign in'), .btn-login, #login");
+            if (loginBtn.count() > 0 && loginBtn.first().isVisible()) {
+                log.info("Phát hiện nút Đăng nhập trên giao diện HRM, đang nhấn...");
+                loginBtn.first().click();
+                page.waitForTimeout(2000);
+            }
+
+            // Inspect localStorage and sessionStorage
+            Object tokenObj = page.evaluate("() => {\n" +
+                    "  if (window.Xu && window.Xu.token) return window.Xu.token;\n" +
+                    "  for (let i = 0; i < localStorage.length; i++) {\n" +
+                    "    let key = localStorage.key(i);\n" +
+                    "    let val = localStorage.getItem(key);\n" +
+                    "    if (typeof val === 'string' && val.startsWith('eyJ') && val.split('.').length === 3) return val;\n" +
+                    "  }\n" +
+                    "  for (let i = 0; i < sessionStorage.length; i++) {\n" +
+                    "    let key = sessionStorage.key(i);\n" +
+                    "    let val = sessionStorage.getItem(key);\n" +
+                    "    if (typeof val === 'string' && val.startsWith('eyJ') && val.split('.').length === 3) return val;\n" +
+                    "  }\n" +
+                    "  return null;\n" +
+                    "}");
+            if (tokenObj != null && isLikelyJwtAccessToken(tokenObj.toString())) {
+                capturedToken.set(tokenObj.toString());
+                log.info("Đọc được JWT token thành công từ Web Storage của trang HRM");
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     private void handleMicrosoftLogin(Page page) {
         log.info("Đang xử lý trang đăng nhập Microsoft Account...");
         try {
             // Check for previous errors on page
             checkMicrosoftErrors(page);
+
+            // 0. Account picker tile if user previously signed in or suggested
+            Locator accountTile = page.locator(String.format("div:has-text('%s'), small:has-text('%s'), div[data-test-id='%s']",
+                    config.getMicrosoftUsername(), config.getMicrosoftUsername(), config.getMicrosoftUsername()));
+            if (accountTile.count() > 0 && accountTile.first().isVisible()) {
+                log.info("Phát hiện tài khoản có sẵn trên Microsoft account picker, đang chọn: {}", config.getMicrosoftUsername());
+                accountTile.first().click();
+                page.waitForTimeout(2000);
+                checkMicrosoftErrors(page);
+            }
 
             // 1. Enter email if present
             Locator emailInput = page.locator("input[type='email'], input[name='loginfmt'], #i0116");
@@ -244,6 +339,26 @@ public class SsoLoginService {
                 log.warn("[CẦN DUYỆT 2FA MFA] Microsoft yêu cầu phê duyệt qua ứng dụng Authenticator hoặc mã SMS!");
             }
         } catch (Exception ignored) {
+        }
+    }
+
+    private boolean isLikelyJwtAccessToken(String token) {
+        if (token == null || !token.startsWith("eyJ") || token.split("\\.").length != 3) {
+            return false;
+        }
+        try {
+            byte[] decoded = java.util.Base64.getUrlDecoder().decode(token.split("\\.")[1]);
+            JsonNode payload = mapper.readTree(decoded);
+            // Must have exp and cannot be KC_RESTART / internal Keycloak action
+            if (!payload.has("exp")) {
+                return false;
+            }
+            if (payload.has("act") && "AUTHENTICATE".equalsIgnoreCase(payload.get("act").asText())) {
+                return false;
+            }
+            return payload.has("sub") || payload.has("employeeid") || payload.has("role") || payload.has("permissions");
+        } catch (Exception e) {
+            return false;
         }
     }
 

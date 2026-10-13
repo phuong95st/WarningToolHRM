@@ -57,4 +57,15 @@ public class TokenCacheTest {
             assertNotNull(playwright, "Playwright instance phải khởi tạo thành công");
         }
     }
+
+    @Test
+    @DisplayName("Kiểm tra SsoLoginService mở Microsoft Edge thành công mà không bị crash TargetClosedError")
+    void testSsoLoginLaunch() {
+        com.gm.warning.config.AppConfig config = new com.gm.warning.config.AppConfig();
+        TokenCache tokenCache = new TokenCache();
+        SsoLoginService sso = new SsoLoginService(config, tokenCache);
+        String token = sso.performSsoLogin();
+        // Even if login needs credentials or network, it should NOT throw TargetClosedError
+        System.out.println("Result token: " + token);
+    }
 }
