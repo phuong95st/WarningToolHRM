@@ -21,9 +21,11 @@
 ## 🌟 TÍNH NĂNG CỐT LÕI
 
 ### 1. 🔑 Tự Động Đăng Nhập SSO Azure AD Ngầm (Playwright)
-* Sử dụng thư viện **Microsoft Playwright** kết hợp trình duyệt Microsoft Edge có sẵn trên máy tính để đăng nhập ngầm không gián đoạn.
+* Sử dụng thư viện **Microsoft Playwright 1.49** kết hợp trình duyệt Microsoft Edge có sẵn trên máy tính để đăng nhập ngầm không gián đoạn (tương thích hoàn hảo với phiên bản Edge 130+ mới nhất).
+* Tự động nhận diện nút SSO **"GM Account"** trên hệ thống xác thực Keycloak của công ty để chuyển hướng đăng nhập tài khoản Microsoft tổ chức.
 * Tự động lấy và gia hạn Bearer Token JWT khi token hết hạn hoặc máy chủ trả về `401 Unauthorized`.
 * Tự động lưu cache phiên vào thư mục `playwright_profile` để đăng nhập siêu tốc ở các lần tiếp theo.
+* **Cơ chế chống tràn ổ C**: Toàn bộ dữ liệu tạm thời của trình duyệt và Java được cách ly về thư mục `temp/` trên ổ đĩa dự án (ổ D), tuyệt đối không gây lỗi đầy ổ đĩa hệ thống `C:\`.
 
 ### 2. ⏰ Quy Tắc Cảnh Báo Chấm Công Thông Minh (Giờ Linh Hoạt)
 * **Khung giờ sáng linh hoạt (08:30 – 09:00)**:
@@ -182,13 +184,14 @@ Tool được thiết kế hoàn toàn linh hoạt để chuyển giao cho nhân
 | **System Tray báo: "Máy chủ HRM bảo trì (HTTP 502/503)"** | Server nội bộ của công ty đang restart hoặc bảo trì | Không cần làm gì, tool ghi nhận log và sẽ thử lại mỗi 2 phút cho đến khi server phục hồi. |
 | **Báo lỗi xác thực Microsoft SSO** | Đổi mật khẩu Microsoft nhưng chưa cập nhật vào tool | Mở file `config.properties`, cập nhật lại mật khẩu mới tại dòng `microsoft.password`. |
 | **Microsoft yêu cầu 2FA / Authenticator** | Tài khoản bật xác thực 2 bước trên thiết bị lạ | Chuột phải vào biểu tượng khay hệ thống -> Chọn "Đăng nhập lại SSO", hoặc mở file `config.properties` đổi `browser.headless=false` để trình duyệt hiện lên cho bạn bấm duyệt trên điện thoại 1 lần. |
+| **Lỗi Playwright / Tràn ổ C (Failed to create driver)** | Ổ C bị đầy hoặc thiếu dung lượng khi giải nén driver | Tool đã tự động cách ly toàn bộ thư mục tạm về thư mục `temp/` trên ổ D và bật cờ `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`. Đảm bảo ổ đĩa cài đặt còn trống tối thiểu 500MB. |
 | **Không nhận được tin nhắn Telegram** | Chưa bấm Start bot hoặc điền sai Chat ID | Kiểm tra lại `telegram.bot.token` và `telegram.chat.id`. Mở bot trên Telegram bấm `/start` một lần. |
 
 ---
 
 ## 🧪 BÁO CÁO KIỂM THỬ CHẤT LƯỢNG (QA TEST REPORT)
 
-* **Bộ kiểm thử tự động (JUnit 5 - 15/15 Tests Passed 100%)**:
+* **Bộ kiểm thử tự động (JUnit 5 - 17/17 Tests Passed 100%)**:
   * ✅ `testWeekendNoAlerts`: Cuối tuần (Thứ 7, CN) tuyệt đối không phát cảnh báo.
   * ✅ `testHolidayNoAlerts`: Ngày nghỉ lễ (Teambuilding, Quốc Khánh...) tự động bỏ qua cảnh báo.
   * ✅ `testMorningReminderAt0845`: Nhắc nhở chấm công đúng các mốc quy định (08:30, 08:45, 08:55).
@@ -204,8 +207,12 @@ Tool được thiết kế hoàn toàn linh hoạt để chuyển giao cho nhân
   * ✅ `testRemindReCheckOutAtTargetTimeAfterEarlyCheckOut`: Tự động nhắc bấm Check-out lại khi đồng hồ chạm mốc 8 tiếng (sau khi từng bấm về sớm).
   * ✅ `testUserChangeInvalidation`: Tự động hủy token cũ khi thay đổi tài khoản nhân viên.
   * ✅ `testExpiredToken`: Kiểm tra hạn và tự động làm mới Bearer token khi hết hạn.
+  * ✅ `testPlaywrightDriverInitWithoutBrowserDownload`: Khởi tạo Playwright driver nhẹ, không tải trình duyệt dư thừa.
+  * ✅ `testSsoLoginLaunch`: Kiểm thử luồng tự động đăng nhập ngầm qua Microsoft Edge và hệ thống Keycloak SSO.
 
-* **Kiểm thử trực tiếp với Server thật (`http://hrm.gm-group.vn`)**:
+* **Kiểm thử trực tiếp với Server thật (`http://hrm.gm-group.vn` & `login.microsoftonline.com`)**:
+  * ✅ Đăng nhập tự động qua Keycloak (nút GM Account) ➔ Microsoft Account ➔ HRM System hoàn tất trong **34 giây**.
+  * ✅ Chặn bắt và lưu thành công Bearer Token JWT hợp lệ (`role: EMPLOYEE`, `employeeid: 2210025`).
   * ✅ Lấy thành công dữ liệu chấm công tháng 10/2026.
   * ✅ Lấy thành công danh sách các ngày nghỉ lễ từ `/api/holidays`.
   * ✅ Lấy và khởi tạo mốc theo dõi duyệt đơn từ `/api/notifications/mine`.
@@ -227,6 +234,8 @@ WarningToolHRM/
 ├── logs/                      # Thư mục lưu nhật ký tự động (tự xoá sau 30 ngày)
 │   ├── hrm-tool-YYYY-MM-DD.log
 │   └── attendance-summary-YYYY-MM-DD.log
+├── temp/                      # Thư mục chứa file tạm của Playwright/Java (tránh đầy ổ C)
+├── playwright_profile/        # Thư mục lưu cache phiên đăng nhập của trình duyệt
 ├── token.json                 # Cache Bearer JWT an toàn (tự động tạo)
 └── notification_state.json    # Mốc id thông báo duyệt đơn đã gửi (chống spam)
 ```
