@@ -121,7 +121,7 @@ reminders.noon=12:00
 reminders.evening=17:35,18:05,18:30,19:00,20:00
 
 # 6. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
-check.interval.minutes=2
+check.interval.minutes=1
 log.retention.days=30
 ```
 

@@ -96,7 +96,7 @@ public class AppConfig {
         }
         eveningReminders = parseTimeList(getProperty("reminders.evening", "17:35,18:05,18:30,19:00,20:00"));
 
-        checkIntervalMinutes = Integer.parseInt(getProperty("check.interval.minutes", "2"));
+        checkIntervalMinutes = Integer.parseInt(getProperty("check.interval.minutes", "1"));
         logRetentionDays = Integer.parseInt(getProperty("log.retention.days", "30"));
     }
 

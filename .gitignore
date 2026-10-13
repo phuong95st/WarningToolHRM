@@ -8,3 +8,5 @@ token.json
 notification_state.json
 temp/
 *.lnk
+config.properties.local
+*.local

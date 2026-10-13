@@ -22,10 +22,11 @@ work.flexible.earliest.start=08:30
 work.flexible.latest.start=09:00
 work.required.span.hours=9
 
-# 5. Các mốc giờ nhắc nhở sáng và chiều
+# 5. Các mốc giờ nhắc nhở sáng, trưa và chiều
 reminders.morning=08:30,08:45,08:55
+reminders.noon=12:00
 reminders.evening=17:35,18:05,18:30,19:00,20:00
 
 # 6. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
-check.interval.minutes=2
+check.interval.minutes=1
 log.retention.days=30
