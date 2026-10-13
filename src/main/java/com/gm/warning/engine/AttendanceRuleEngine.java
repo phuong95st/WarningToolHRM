@@ -29,6 +29,7 @@ public class AttendanceRuleEngine {
     private boolean fullWorkConfirmedSent = false;
     private boolean reCheckOutRemindedAtTarget = false;
     private String lastMissingCheckInCheckOutAlerted = null;
+    private boolean noonReminderSent = false;
     private final Set<String> sentMorningReminders = new HashSet<>();
     private final Set<String> sentEveningReminders = new HashSet<>();
     private LocalTime lastLateCheckInAlertTime = null;
@@ -60,6 +61,7 @@ public class AttendanceRuleEngine {
             fullWorkConfirmedSent = false;
             reCheckOutRemindedAtTarget = false;
             lastMissingCheckInCheckOutAlerted = null;
+            noonReminderSent = false;
             sentMorningReminders.clear();
             sentEveningReminders.clear();
             lastLateCheckInAlertTime = null;
@@ -142,6 +144,9 @@ public class AttendanceRuleEngine {
                         TelegramTemplate.checkInSuccess(todayRecord.getCheckIn(), earliestOutStr, todayRecord.getStatus())
                 ));
             }
+
+            // Nhắc Check-out nghỉ trưa (nếu chiều có thể nghỉ không đi làm)
+            evaluateNoonCheckOut(now, checkInTime, alerts);
 
             // Đánh giá các mốc nhắc nhở buổi chiều/tối
             evaluateEveningCheckOut(now, checkInTime, alerts);
@@ -277,6 +282,29 @@ public class AttendanceRuleEngine {
                         TelegramTemplate.lateCheckInAlert(nowStr, latestStartStr, config.getHrmUrl())
                 ));
             }
+        }
+    }
+
+    private void evaluateNoonCheckOut(LocalTime now, LocalTime checkInTime, List<RuleAlert> alerts) {
+        if (noonReminderSent) {
+            return;
+        }
+
+        LocalTime noonTime = config.getNoonReminder();
+        if (noonTime == null) {
+            noonTime = LocalTime.of(12, 0);
+        }
+
+        // Kích hoạt khi đồng hồ tới mốc nhắc trưa (mặc định 12:00) và trước 13:30 (trước khi vào ca chiều)
+        if (!now.isBefore(noonTime) && now.isBefore(noonTime.plusMinutes(90))) {
+            noonReminderSent = true;
+            String checkInStr = checkInTime != null ? checkInTime.format(DateTimeFormatter.ofPattern("HH:mm")) : "--:--";
+            String nowStr = now.format(DateTimeFormatter.ofPattern("HH:mm"));
+            alerts.add(new RuleAlert(
+                    AlertLevel.WARNING,
+                    "Nhắc Check-out nghỉ trưa (" + nowStr + ")",
+                    TelegramTemplate.noonReminder(nowStr, checkInStr)
+            ));
         }
     }
 

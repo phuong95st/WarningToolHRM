@@ -51,6 +51,19 @@ public class TelegramTemplate {
     }
 
     /**
+     * Nhắc nhở Check-out nghỉ trưa / kết thúc ca sáng (đề phòng buổi chiều nghỉ không đi làm)
+     */
+    public static String noonReminder(String currentTime, String checkInTime) {
+        String inText = (checkInTime != null && !checkInTime.isBlank()) ? checkInTime : "--:--";
+        return SEPARATOR + "\n" +
+                "🔔 <b>NHẮC CHECK-OUT NGHỈ TRƯA</b>\n\n" +
+                "<blockquote>⏰ Giờ vào sáng: <b>" + inText + "</b>\n" +
+                "🕛 Hiện tại: <b>" + currentTime + "</b> (Hết ca sáng)\n" +
+                "💡 Nếu chiều nghỉ, nhớ bấm Check-out để chốt công!</blockquote>\n\n" +
+                "👉 <i>Nếu buổi chiều nghỉ làm, hãy bấm</i> <b>Check-out ngay</b> <i>để được tính nửa ngày công ca sáng nhé!</i>";
+    }
+
+    /**
      * Nhắc nhở Check-out buổi chiều/tối
      */
     public static String eveningReminder(String timeSlot, String currentTime, String checkInTime) {

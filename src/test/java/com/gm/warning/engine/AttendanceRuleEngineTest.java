@@ -319,4 +319,54 @@ public class AttendanceRuleEngineTest {
         assertTrue(alertsTarget.get(0).getMessage().contains("16:30"));
         assertTrue(alertsTarget.get(0).getMessage().contains("17:50"));
     }
+
+    @Test
+    @DisplayName("Sáng đã check-in -> Đến trưa (12:00) nhắc check-out 1 lần phòng trường hợp chiều nghỉ làm")
+    void testNoonCheckOutReminderWhenCheckedIn() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+
+        // Morning: Check-in at 08:44
+        AttendanceRecord record = new AttendanceRecord("ĐANG LÀM VIỆC", "2026-10-13", "08:44", null);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(List.of(record));
+
+        // Consume check-in confirmation at 09:00
+        engine.evaluate(response, null, tuesday, LocalTime.of(9, 0));
+
+        // Before noon (11:55): No reminder yet
+        List<AttendanceRuleEngine.RuleAlert> beforeNoonAlerts = engine.evaluate(response, null, tuesday, LocalTime.of(11, 55));
+        assertTrue(beforeNoonAlerts.isEmpty(), "Trước 12:00 chưa được bắn cảnh báo nghỉ trưa");
+
+        // At noon (12:00): Triggers noon checkout reminder
+        List<AttendanceRuleEngine.RuleAlert> noonAlerts = engine.evaluate(response, null, tuesday, LocalTime.of(12, 0));
+        assertEquals(1, noonAlerts.size());
+        assertEquals(AttendanceRuleEngine.AlertLevel.WARNING, noonAlerts.get(0).getLevel());
+        assertEquals("Nhắc Check-out nghỉ trưa (12:00)", noonAlerts.get(0).getTitle());
+        assertTrue(noonAlerts.get(0).getMessage().contains("08:44"));
+        assertTrue(noonAlerts.get(0).getMessage().contains("12:00"));
+        assertTrue(noonAlerts.get(0).getMessage().toLowerCase().contains("chiều nghỉ"));
+        assertTrue(noonAlerts.get(0).getMessage().contains("Check-out ngay"));
+
+        // Anti-spam verification: At 12:05 or 12:15 should not fire again
+        List<AttendanceRuleEngine.RuleAlert> repeatAlerts = engine.evaluate(response, null, tuesday, LocalTime.of(12, 5));
+        assertTrue(repeatAlerts.isEmpty(), "Chỉ nhắc check-out trưa 1 lần duy nhất trong ngày");
+    }
+
+    @Test
+    @DisplayName("Buổi trưa đã check-out từ trước (ví dụ 11:55) -> Không nhắc check-out trưa nữa")
+    void testNoonCheckOutReminderNotFiredIfAlreadyCheckedOut() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+
+        // Already checked out at 11:55
+        AttendanceRecord record = new AttendanceRecord("CA SÁNG", "2026-10-13", "08:44", "11:55");
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(List.of(record));
+
+        // Evaluate at 12:00
+        List<AttendanceRuleEngine.RuleAlert> noonAlerts = engine.evaluate(response, null, tuesday, LocalTime.of(12, 0));
+        boolean hasNoonAlert = noonAlerts.stream().anyMatch(a -> a.getTitle().contains("nghỉ trưa"));
+        assertFalse(hasNoonAlert, "Nếu đã bấm check-out từ trước thì không được nhắc check-out trưa");
+    }
 }

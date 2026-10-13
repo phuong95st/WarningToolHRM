@@ -36,6 +36,7 @@ public class AppConfig {
     private int requiredSpanHours;
 
     private List<LocalTime> morningReminders = new ArrayList<>();
+    private LocalTime noonReminder = LocalTime.of(12, 0);
     private List<LocalTime> eveningReminders = new ArrayList<>();
     private int checkIntervalMinutes;
     private int logRetentionDays;
@@ -86,6 +87,13 @@ public class AppConfig {
         requiredSpanHours = Integer.parseInt(getProperty("work.required.span.hours", "9"));
 
         morningReminders = parseTimeList(getProperty("reminders.morning", "08:30,08:45,08:55"));
+        String noonStr = getProperty("reminders.noon", "12:00");
+        try {
+            noonReminder = LocalTime.parse(noonStr.trim());
+        } catch (Exception e) {
+            log.warn("Invalid time format for reminders.noon: {}, fallback to 12:00", noonStr);
+            noonReminder = LocalTime.of(12, 0);
+        }
         eveningReminders = parseTimeList(getProperty("reminders.evening", "17:35,18:05,18:30,19:00,20:00"));
 
         checkIntervalMinutes = Integer.parseInt(getProperty("check.interval.minutes", "2"));
@@ -143,6 +151,8 @@ public class AppConfig {
     public LocalTime getLatestStart() { return latestStart; }
     public int getRequiredSpanHours() { return requiredSpanHours; }
     public List<LocalTime> getMorningReminders() { return morningReminders; }
+    public LocalTime getNoonReminder() { return noonReminder != null ? noonReminder : LocalTime.of(12, 0); }
+    public void setNoonReminder(LocalTime noonReminder) { this.noonReminder = noonReminder; }
     public List<LocalTime> getEveningReminders() { return eveningReminders; }
     public int getCheckIntervalMinutes() { return checkIntervalMinutes; }
     public int getLogRetentionDays() { return logRetentionDays; }
