@@ -105,7 +105,7 @@ public class AttendanceRuleEngineTest {
         List<AttendanceRuleEngine.RuleAlert> alerts = engine.evaluate(response, null, tuesday, time0905);
         assertFalse(alerts.isEmpty());
         assertEquals(AttendanceRuleEngine.AlertLevel.URGENT, alerts.get(0).getLevel());
-        assertTrue(alerts.get(0).getMessage().contains("BÁO ĐỘNG: QUÁ GIỜ CHẤM CÔNG"));
+        assertTrue(alerts.get(0).getMessage().toLowerCase().contains("quá giờ chấm công"));
     }
 
     @Test
@@ -123,7 +123,7 @@ public class AttendanceRuleEngineTest {
         assertEquals(1, alerts.size());
         assertEquals(AttendanceRuleEngine.AlertLevel.INFO, alerts.get(0).getLevel());
         assertTrue(alerts.get(0).getMessage().contains("17:44"));
-        assertTrue(alerts.get(0).getMessage().contains("CHECK-IN THÀNH CÔNG"));
+        assertTrue(alerts.get(0).getMessage().toLowerCase().contains("check-in thành công"));
     }
 
     @Test
@@ -142,7 +142,7 @@ public class AttendanceRuleEngineTest {
         List<AttendanceRuleEngine.RuleAlert> alerts = engine.evaluate(response, null, tuesday, LocalTime.of(17, 45));
         assertEquals(1, alerts.size());
         assertEquals("Đã đủ giờ làm việc", alerts.get(0).getTitle());
-        assertTrue(alerts.get(0).getMessage().contains("ĐÃ ĐỦ GIỜ LÀM VIỆC"));
+        assertTrue(alerts.get(0).getMessage().toLowerCase().contains("đã đủ 8h làm việc"));
     }
 
     @Test
@@ -197,7 +197,7 @@ public class AttendanceRuleEngineTest {
         assertEquals(1, alerts.size());
         assertEquals(AttendanceRuleEngine.AlertLevel.URGENT, alerts.get(0).getLevel());
         assertTrue(alerts.get(0).getTitle().contains("thiếu Check-in"));
-        assertTrue(alerts.get(0).getMessage().contains("CÓ CHECK-OUT NHƯNG THIẾU CHECK-IN"));
+        assertTrue(alerts.get(0).getMessage().toLowerCase().contains("thiếu check-in sáng"));
         assertTrue(alerts.get(0).getMessage().contains("18:10"));
 
         // Anti-spam verification: calling again should not fire
@@ -228,7 +228,7 @@ public class AttendanceRuleEngineTest {
         assertEquals(1, alerts.size());
         assertEquals(AttendanceRuleEngine.AlertLevel.WARNING, alerts.get(0).getLevel());
         assertTrue(alerts.get(0).getTitle().contains("chưa đủ công"));
-        assertTrue(alerts.get(0).getMessage().contains("CHECK-OUT CHƯA ĐỦ CÔNG"));
+        assertTrue(alerts.get(0).getMessage().toLowerCase().contains("check-out chưa đủ công"));
         assertTrue(alerts.get(0).getMessage().contains("08:50"));
         assertTrue(alerts.get(0).getMessage().contains("16:30"));
         assertTrue(alerts.get(0).getMessage().contains("17:50")); // required minimum checkout
@@ -315,7 +315,7 @@ public class AttendanceRuleEngineTest {
         List<AttendanceRuleEngine.RuleAlert> alertsTarget = engine.evaluate(respEarly, null, tuesday, LocalTime.of(17, 51));
         assertEquals(1, alertsTarget.size());
         assertEquals("Nhắc Check-out lại (Đã đủ 8h)", alertsTarget.get(0).getTitle());
-        assertTrue(alertsTarget.get(0).getMessage().contains("ĐÃ ĐẾN GIỜ ĐỦ CÔNG — HÃY CHECK-OUT LẠI"));
+        assertTrue(alertsTarget.get(0).getMessage().toLowerCase().contains("hãy check-out lại"));
         assertTrue(alertsTarget.get(0).getMessage().contains("16:30"));
         assertTrue(alertsTarget.get(0).getMessage().contains("17:50"));
     }
