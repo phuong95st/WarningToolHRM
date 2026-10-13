@@ -102,8 +102,8 @@ hrm.api.holidays.path=/api/holidays
 hrm.api.notifications.path=/api/notifications/mine
 
 # 2. Tài khoản Microsoft SSO
-microsoft.username=phuongnh@gm-group.vn
-microsoft.password=Goq67197
+microsoft.username=your_email@gm-group.vn
+microsoft.password=your_password_here
 
 # 3. Cấu hình nhận cảnh báo qua Telegram Bot
 telegram.enabled=true
@@ -222,7 +222,7 @@ Tool được thiết kế hoàn toàn linh hoạt để chuyển giao cho nhân
 
 * **Kiểm thử trực tiếp với Server thật (`http://hrm.gm-group.vn` & `login.microsoftonline.com`)**:
   * ✅ Đăng nhập tự động qua Keycloak (nút GM Account) ➔ Microsoft Account ➔ HRM System hoàn tất trong **34 giây**.
-  * ✅ Chặn bắt và lưu thành công Bearer Token JWT hợp lệ (`role: EMPLOYEE`, `employeeid: 2210025`).
+  * ✅ Chặn bắt và lưu thành công Bearer Token JWT hợp lệ (`role: EMPLOYEE`, `employeeid: ******`).
   * ✅ Lấy thành công dữ liệu chấm công tháng 10/2026.
   * ✅ Lấy thành công danh sách các ngày nghỉ lễ từ `/api/holidays`.
   * ✅ Lấy và khởi tạo mốc theo dõi duyệt đơn từ `/api/notifications/mine`.
