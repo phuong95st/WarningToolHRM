@@ -344,7 +344,7 @@ public class AttendanceRuleEngineTest {
         assertEquals(AttendanceRuleEngine.AlertLevel.WARNING, noonAlerts.get(0).getLevel());
         assertEquals("Nhắc Check-out nghỉ trưa (12:00)", noonAlerts.get(0).getTitle());
         assertTrue(noonAlerts.get(0).getMessage().contains("08:44"));
-        assertTrue(noonAlerts.get(0).getMessage().contains("12:00"));
+        assertTrue(noonAlerts.get(0).getMessage().contains("12:00 - 13:00"));
         assertTrue(noonAlerts.get(0).getMessage().toLowerCase().contains("chiều nghỉ"));
         assertTrue(noonAlerts.get(0).getMessage().contains("Check-out ngay"));
 

@@ -295,8 +295,9 @@ public class AttendanceRuleEngine {
             noonTime = LocalTime.of(12, 0);
         }
 
-        // Kích hoạt khi đồng hồ tới mốc nhắc trưa (mặc định 12:00) và trước 13:30 (trước khi vào ca chiều)
-        if (!now.isBefore(noonTime) && now.isBefore(noonTime.plusMinutes(90))) {
+        // Kích hoạt khi đồng hồ tới mốc nhắc trưa (12:00) trong khung giờ nghỉ trưa 12:00 - 13:00
+        LocalTime lunchEnd = LocalTime.of(13, 0);
+        if (!now.isBefore(noonTime) && now.isBefore(lunchEnd)) {
             noonReminderSent = true;
             String checkInStr = checkInTime != null ? checkInTime.format(DateTimeFormatter.ofPattern("HH:mm")) : "--:--";
             String nowStr = now.format(DateTimeFormatter.ofPattern("HH:mm"));

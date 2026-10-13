@@ -58,7 +58,7 @@ public class TelegramTemplate {
         return SEPARATOR + "\n" +
                 "🔔 <b>NHẮC CHECK-OUT NGHỈ TRƯA</b>\n\n" +
                 "<blockquote>⏰ Giờ vào sáng: <b>" + inText + "</b>\n" +
-                "🕛 Hiện tại: <b>" + currentTime + "</b> (Hết ca sáng)\n" +
+                "🕛 Nghỉ trưa: <b>12:00 - 13:00</b> (Hiện tại: <b>" + currentTime + "</b>)\n" +
                 "💡 Nếu chiều nghỉ, nhớ bấm Check-out để chốt công!</blockquote>\n\n" +
                 "👉 <i>Nếu buổi chiều nghỉ làm, hãy bấm</i> <b>Check-out ngay</b> <i>để được tính nửa ngày công ca sáng nhé!</i>";
     }

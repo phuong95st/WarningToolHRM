@@ -32,7 +32,12 @@
   * Nhắc nhở chấm công định kỳ vào các mốc `08:30`, `08:45`, `08:55` nếu hệ thống chưa ghi nhận Check-in.
   * **Báo động đỏ khẩn cấp** sau `09:00` nếu vẫn chưa bấm chấm công.
 * **Tự động tính giờ về tối thiểu**:
-  * Ngay khi check-in (ví dụ vào lúc `08:44`), tool tự động cộng đủ 8 tiếng làm việc + 1 tiếng nghỉ trưa = **9 tiếng** (về tối thiểu `17:44`) và gửi thông báo xác nhận.
+  * Ngay khi check-in (ví dụ vào lúc `08:44`), tool tự động cộng đủ 8 tiếng làm việc + 1 tiếng nghỉ trưa (`12:00 – 13:00`) = **9 tiếng** (về tối thiểu `17:44`) và gửi thông báo xác nhận.
+* **🍱 Nhắc nhở Check-out nghỉ trưa (12:00 – 13:00)**:
+  * Khung giờ nghỉ trưa công ty: **12:00 – 13:00**.
+  * Nếu sáng đã Check-in, đến đúng **12:00** tool sẽ gửi thông báo nhắc Check-out 1 lần: đề phòng trường hợp buổi chiều bạn có việc bận hoặc nghỉ phép không đi làm, giúp hệ thống HRM chốt và ghi nhận đủ nửa ngày công ca sáng thay vì bị mất công.
+  * Nếu bạn đã bấm Check-out từ trước đó (ví dụ 11:55 ra về), hệ thống tự động không nhắc nữa.
+  * Cơ chế chống spam: Chỉ gửi duy nhất **1 lần trong ngày** trong suốt khung giờ nghỉ trưa (12:00 – 13:00).
 * **Khung giờ chiều & tối**:
   * Thông báo ngay khi hoàn thành đủ 8 tiếng công trong ngày.
   * Nhắc nhở bấm Check-out vào các mốc `17:35`, `18:05`, `18:30`, `19:00`, `20:00`.
@@ -62,8 +67,10 @@
 * Có cơ chế lưu mốc (`notification_state.json`) để **chống spam**, chỉ gửi các thông báo mới phát sinh.
 
 ### 5. 📱 Template Thông Báo Telegram Tối Ưu Cho Mobile
-* Mỗi thông báo có đường viền phân cách `━━━━━━━━━━━━━━━━━━━━━` trên đầu để phân biệt rõ ràng khi nhận nhiều tin nhắn liên tiếp.
-* Độ rộng tin nhắn được căn chỉnh chuẩn theo màn hình điện thoại, in đậm các thông tin cốt lõi (giờ vào, giờ về, trạng thái).
+* Mỗi thông báo có đường viền phân cách `━━━━━━━━━━━━━━━━` (16 ký tự) trên đầu để phân biệt rõ ràng khi nhận nhiều tin nhắn liên tiếp.
+* **Tiêu đề IN HOA ngắn gọn ($\le 24$ ký tự)**: Luôn nằm gọn trên 1 dòng duy nhất trên điện thoại, tuyệt đối không bị rớt lẻ loi một chữ xuống dòng tiếp theo.
+* **Bố cục đối xứng**: Khoảng cách đều 1 dòng trống phía trên và phía dưới khối thông tin, mang lại trải nghiệm xem thoáng mắt.
+* **In đậm nổi bật thông tin cốt lõi**: Mốc giờ ra yêu cầu (`17:50`), các hành động quan trọng (`Check-in ngay`, `Check-out ngay`, `ĐỦ CÔNG`) được làm nổi bật để dễ nắm bắt ngay khi nhìn lướt qua.
 
 ### 6. 📂 Quản Lý Log Tự Động & Retention 30 Ngày
 * Tự động ghi log chi tiết vào `logs/hrm-tool-YYYY-MM-DD.log`.
@@ -108,8 +115,9 @@ work.flexible.earliest.start=08:30
 work.flexible.latest.start=09:00
 work.required.span.hours=9
 
-# 5. Các mốc giờ nhắc nhở sáng và chiều
+# 5. Các mốc giờ nhắc nhở sáng, trưa và chiều
 reminders.morning=08:30,08:45,08:55
+reminders.noon=12:00
 reminders.evening=17:35,18:05,18:30,19:00,20:00
 
 # 6. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
@@ -191,13 +199,15 @@ Tool được thiết kế hoàn toàn linh hoạt để chuyển giao cho nhân
 
 ## 🧪 BÁO CÁO KIỂM THỬ CHẤT LƯỢNG (QA TEST REPORT)
 
-* **Bộ kiểm thử tự động (JUnit 5 - 17/17 Tests Passed 100%)**:
+* **Bộ kiểm thử tự động (JUnit 5 - 19/19 Tests Passed 100%)**:
   * ✅ `testWeekendNoAlerts`: Cuối tuần (Thứ 7, CN) tuyệt đối không phát cảnh báo.
   * ✅ `testHolidayNoAlerts`: Ngày nghỉ lễ (Teambuilding, Quốc Khánh...) tự động bỏ qua cảnh báo.
   * ✅ `testMorningReminderAt0845`: Nhắc nhở chấm công đúng các mốc quy định (08:30, 08:45, 08:55).
   * ✅ `testAntiSpamMorningReminder`: Chống spam, không gửi lặp cảnh báo trong cùng mốc giờ.
   * ✅ `testLateCheckInRedAlert`: Phát báo động đỏ khẩn cấp sau 09:00.
   * ✅ `testCheckInConfirmed`: Tính đúng giờ về tối thiểu (+9h gồm làm việc và nghỉ trưa).
+  * ✅ `testNoonCheckOutReminderWhenCheckedIn`: Sáng đã check-in ➔ Đến trưa (12:00) nhắc check-out 1 lần phòng trường hợp chiều nghỉ làm; chống spam không gửi lặp.
+  * ✅ `testNoonCheckOutReminderNotFiredIfAlreadyCheckedOut`: Buổi trưa đã check-out từ trước (ví dụ 11:55) ➔ Tự động không nhắc nữa.
   * ✅ `testReached8Hours`: Thông báo chính xác khi hoàn thành đủ 8 tiếng.
   * ✅ `testEveningReminderAt1805`: Nhắc nhở check-out đúng các mốc giờ chiều/tối.
   * ✅ `testCompletedWorkNoAlert`: Đã check-out đủ công thì không cảnh báo sai.
@@ -246,10 +256,12 @@ WarningToolHRM/
 
 ### Phiên Bản v1.0.0 (Official Release — 13/10/2026)
 * 🚀 **Core**: Tự động đăng nhập ngầm qua Playwright (Microsoft Edge), tự động lấy và gia hạn Bearer Token JWT.
-* ⏰ **Giờ làm việc linh hoạt**: Hỗ trợ khung giờ vào 08:30 – 09:00, tự động cộng 9 tiếng (8h làm việc + 1h trưa) để tính mốc về tối thiểu.
+* ⏰ **Giờ làm việc linh hoạt**: Hỗ trợ khung giờ vào 08:30 – 09:00, tự động cộng 9 tiếng (8h làm việc + 1h trưa 12:00 – 13:00) để tính mốc về tối thiểu.
+* 🍱 **Nhắc nhở nghỉ trưa (12:00 – 13:00)**: Tự động nhắc Check-out lúc 12:00 phòng trường hợp buổi chiều nghỉ làm để tránh mất nửa ngày công ca sáng; cơ chế chống spam chỉ gửi 1 lần.
 * 🔄 **Multi-Checkout Intelligence**: Hỗ trợ nhân viên check-out nhiều lần trong ngày; cảnh báo số phút còn thiếu cho mỗi lần bấm sớm; tự động nhắc check-out lại khi đến giờ đủ công; chúc mừng khi chốt `ĐỦ CÔNG`.
 * 🚨 **Edge Cases**: Cảnh báo khẩn cấp khi có Check-out nhưng thiếu Check-in sáng; Cảnh báo Shutdown Hook khi tắt máy tính mà quên check-out hoặc check-out chưa đủ công.
 * 🏖️ **Lịch làm việc**: Tự động bỏ qua Thứ 7, Chủ Nhật và lịch nghỉ lễ lấy từ API công ty.
 * 🔔 **Duyệt đơn realtime**: Bắn thông báo kết quả duyệt đơn Nghỉ phép, Remote, OT tức thì lên Telegram.
+* 📱 **Giao diện Telegram chuẩn Mobile**: Tiêu đề IN HOA súc tích (<25 ký tự không rớt chữ), đường kẻ 16 ký tự, khoảng cách bố cục đối xứng, in đậm nổi bật mốc giờ và hành động.
 * 💻 **Giao diện**: Windows System Tray (Khay hệ thống) với biểu tượng chữ H, menu chuột phải nhanh và Desktop Toasts.
 * 📂 **Quản lý Log**: Tự động xoá file log sau 30 ngày (1 tháng).
