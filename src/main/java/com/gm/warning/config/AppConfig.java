@@ -66,6 +66,17 @@ public class AppConfig {
             }
         }
 
+        // Tự động nạp đè cấu hình cá nhân nếu có file config.properties.local (không lưu trên Git)
+        Path localPath = Paths.get("config.properties.local");
+        if (Files.exists(localPath)) {
+            try (InputStream in = Files.newInputStream(localPath)) {
+                properties.load(new InputStreamReader(in, StandardCharsets.UTF_8));
+                log.info("Loaded local private config overrides from: {}", localPath.toAbsolutePath());
+            } catch (IOException e) {
+                log.error("Failed to read {}: {}", localPath, e.getMessage());
+            }
+        }
+
         hrmUrl = getProperty("hrm.url", "http://hrm.gm-group.vn");
         attendanceApiPath = getProperty("hrm.api.attendance.path", "/api/attendance/today");
         holidaysApiPath = getProperty("hrm.api.holidays.path", "/api/holidays");
