@@ -2,8 +2,8 @@ package com.gm.warning.notification;
 
 public class TelegramTemplate {
 
-    // Đường gạch ngang 16 ký tự '━', phủ vừa khít độ rộng tin nhắn trên điện thoại, tuyệt đối không bị rớt dòng
-    public static final String SEPARATOR = "━━━━━━━━━━━━━━━━";
+    // Đường gạch ngang 22 ký tự '━', phủ 100% độ rộng bong bóng chat trên điện thoại, tuyệt đối không bị rớt dòng
+    public static final String SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━";
 
     /**
      * Thông báo xác nhận Check-in buổi sáng thành công
@@ -25,7 +25,7 @@ public class TelegramTemplate {
                 "⏰ <b>NHẮC CHẤM CÔNG SÁNG (" + timeSlot + ")</b>\n\n" +
                 "<blockquote>⚠️ Bạn chưa bấm Check-in trên HRM!\n" +
                 "🏢 Giờ làm việc hạn chót: <b>" + latestStart + "</b></blockquote>\n\n" +
-                "👉 <i>Hãy chấm công ngay khi đến công ty.</i>";
+                "👉 <i>Hãy vào HRM bấm</i> <b>Check-in ngay</b> <i>trước</i> <b>" + latestStart + "</b>!";
     }
 
     /**
@@ -36,7 +36,7 @@ public class TelegramTemplate {
                 "🚨 <b>QUÁ GIỜ CHẤM CÔNG SÁNG</b>\n\n" +
                 "<blockquote>⚠️ Hiện tại là <b>" + currentTime + "</b> (đã quá <b>" + latestStart + "</b>)!\n" +
                 "❌ Hệ thống HRM <b>chưa ghi nhận Check-in</b> của bạn.</blockquote>\n\n" +
-                "👉 Vào ngay <a href=\"" + hrmUrl + "\">HRM System</a> để chấm công!";
+                "👉 Vào ngay <a href=\"" + hrmUrl + "\"><b>HRM System</b></a> để <b>Check-in ngay</b>!";
     }
 
     /**
@@ -47,7 +47,7 @@ public class TelegramTemplate {
                 "🎉 <b>ĐÃ ĐỦ 8H LÀM VIỆC HÔM NAY</b>\n\n" +
                 "<blockquote>⏰ Giờ vào: <b>" + checkInTime + "</b>\n" +
                 "🎯 Đến <b>" + earliestOutTime + "</b> bạn đã hoàn thành đủ 8 tiếng.</blockquote>\n\n" +
-                "🔔 <i>Khi nào kết thúc ca làm, nhớ bấm Check-out nhé!</i>";
+                "🔔 <i>Khi nào kết thúc ca làm, nhớ bấm</i> <b>Check-out</b> <i>nhé!</i>";
     }
 
     /**
@@ -59,7 +59,7 @@ public class TelegramTemplate {
                 "🔔 <b>NHẮC CHECK-OUT (" + timeSlot + ")</b>\n\n" +
                 "<blockquote>🚪 Hiện tại là <b>" + currentTime + "</b>, bạn <b>CHƯA BẤM CHECK-OUT</b>.\n" +
                 "⏰ Giờ vào hôm nay: <b>" + inText + "</b></blockquote>\n\n" +
-                "👉 <i>Nếu chuẩn bị ra về, hãy bấm Check-out ngay kẻo quên!</i>";
+                "👉 <i>Nếu chuẩn bị ra về, hãy bấm</i> <b>Check-out ngay</b> <i>kẻo quên!</i>";
     }
 
     /**
@@ -71,7 +71,7 @@ public class TelegramTemplate {
                 "⚠️ <b>QUÊN BẤM CHECK-OUT?</b>\n\n" +
                 "<blockquote>🌙 Đã <b>" + currentTime + "</b> nhưng chưa có bản ghi Check-out trên HRM.\n" +
                 "⏰ Giờ vào: <b>" + inText + "</b></blockquote>\n\n" +
-                "👉 <i>Nếu đã về nhà, hãy vào HRM giải trình bổ sung check-out!</i>";
+                "👉 <i>Nếu đã về nhà, hãy vào HRM làm</i> <b>đơn giải trình bổ sung Check-out</b>!";
     }
 
     /**
@@ -84,7 +84,7 @@ public class TelegramTemplate {
                 "<blockquote>⚠️ Phát hiện máy tính đang <b>TẮT / RỜI BÀN LÀM VIỆC</b>!\n" +
                 "⏰ Giờ vào hôm nay: <b>" + inText + "</b>\n" +
                 "🚪 Giờ ra: <b>Chưa bấm Check-out</b></blockquote>\n\n" +
-                "👉 <i>Hãy mở HRM trên điện thoại để Check-out ngay kẻo mất công!</i>";
+                "👉 <i>Hãy mở HRM trên điện thoại để</i> <b>Check-out ngay</b> <i>kẻo mất công!</i>";
     }
 
     /**
@@ -107,7 +107,7 @@ public class TelegramTemplate {
                 "<blockquote>🚪 Check-out lúc: <b>" + checkOutTime + "</b>\n" +
                 "❌ Buổi sáng <b>CHƯA BẤM CHECK-IN</b>!\n" +
                 "📊 Trạng thái: <b>" + (status != null ? status : "N/A") + "</b></blockquote>\n\n" +
-                "👉 <i>Hãy vào HRM làm đơn Giải trình quên check-in ngay!</i>";
+                "👉 <i>Hãy vào HRM làm</i> <b>đơn Giải trình quên check-in</b> <i>ngay!</i>";
     }
 
     /**
@@ -139,9 +139,9 @@ public class TelegramTemplate {
         sb.append("📊 Trạng thái: <b>").append(status != null ? status : "Chưa đủ công").append("</b></blockquote>\n\n");
 
         if (attemptNumber <= 1) {
-            sb.append("👉 <i>Nếu còn ở lại, nhớ bấm Check-out lại sau <b>").append(earliestOutTime).append("</b>!</i>");
+            sb.append("👉 <i>Nếu còn ở lại, nhớ bấm Check-out lại sau</i> <b>").append(earliestOutTime).append("</b> <i>(đủ 8h)!</i>");
         } else {
-            sb.append("👉 <i>Hãy tiếp tục làm việc và bấm Check-out lại khi đủ giờ nhé!</i>");
+            sb.append("👉 <i>Hãy tiếp tục làm việc và bấm Check-out lại sau</i> <b>").append(earliestOutTime).append("</b> <i>nhé!</i>");
         }
 
         return sb.toString();
@@ -162,9 +162,9 @@ public class TelegramTemplate {
         sb.append("⏳ Tổng làm việc: <b>").append(hoursWorked).append("h ").append(minsWorked).append("p</b>\n");
         sb.append("📊 Trạng thái: <b>").append(status != null ? status : "ĐỦ CÔNG").append("</b></blockquote>\n\n");
         if (attemptNumber > 1) {
-            sb.append("✅ <i>Lần check-out thứ ").append(attemptNumber).append(" này đã hoàn thành đủ 8 tiếng. Chúc bạn buổi tối vui vẻ!</i>");
+            sb.append("✅ <i>Lần check-out thứ ").append(attemptNumber).append(" này đã hoàn thành <b>đủ 8 tiếng</b>. Chúc bạn buổi tối vui vẻ!</i>");
         } else {
-            sb.append("✅ <i>Hoàn thành đủ ngày công. Chúc bạn một buổi tối vui vẻ!</i>");
+            sb.append("✅ <i>Hoàn thành <b>đủ ngày công</b>. Chúc bạn một buổi tối vui vẻ!</i>");
         }
         return sb.toString();
     }
@@ -178,7 +178,7 @@ public class TelegramTemplate {
                 "<blockquote>⏰ Giờ vào: <b>" + (checkInTime != null ? checkInTime : "--:--") + "</b> | Mốc đủ: <b>" + earliestOutTime + "</b>\n" +
                 "🚪 Lúc <b>" + previousCheckOutTime + "</b> bạn từng check-out thiếu giờ.\n" +
                 "🎯 Hiện tại (<b>" + currentTime + "</b>) bạn đã hoàn thành đủ 8 tiếng!</blockquote>\n\n" +
-                "👉 <i>Hãy bấm <b>Check-out lại ngay</b> để hệ thống cập nhật ĐỦ CÔNG!</i>";
+                "👉 <i>Hãy bấm</i> <b>Check-out lại ngay</b> <i>để hệ thống cập nhật</i> <b>ĐỦ CÔNG</b>!";
     }
 
     /**
@@ -190,7 +190,7 @@ public class TelegramTemplate {
                 "<blockquote>⏰ Giờ vào: <b>" + (checkInTime != null ? checkInTime : "--:--") + "</b> | Check-out: <b>" + checkOutTime + "</b>\n" +
                 "🎯 Giờ ra yêu cầu: <b>" + earliestOutTime + "</b>\n" +
                 "📊 Trạng thái: <b>" + (status != null ? status : "Chưa đủ công") + "</b></blockquote>\n\n" +
-                "👉 <i>Đừng quên bấm <b>Check-out lại</b> trên HRM nếu bạn vừa làm đủ giờ!</i>";
+                "👉 <i>Đừng quên bấm Check-out lại sau</i> <b>" + earliestOutTime + "</b> <i>trên HRM nếu bạn vừa làm đủ giờ!</i>";
     }
 
     /**
@@ -202,7 +202,7 @@ public class TelegramTemplate {
                 "<blockquote>📅 Ngày: <b>" + workDate + "</b>\n" +
                 "⏰ In: <b>" + (checkIn != null ? checkIn : "--:--") + "</b> | Out: <b>" + (checkOut != null ? checkOut : "--:--") + "</b>\n" +
                 "📊 Trạng thái: <b>" + status + "</b> <i>(Chưa đủ công)</i></blockquote>\n\n" +
-                "👉 <i>Hãy kiểm tra và gửi đơn Giải trình chấm công nếu cần!</i>";
+                "👉 <i>Hãy kiểm tra và gửi</i> <b>đơn Giải trình chấm công</b> <i>nếu cần!</i>";
     }
 
     /**
