@@ -2,15 +2,15 @@ package com.gm.warning.notification;
 
 public class TelegramTemplate {
 
-    public static final String SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━";
+    // Đường gạch phân cách ngắn gọn ở đầu mỗi thông báo, đảm bảo luôn nằm trên 1 dòng duy nhất trên điện thoại
+    public static final String SEPARATOR = "-------------------";
 
     /**
      * Thông báo xác nhận Check-in buổi sáng thành công
      */
     public static String checkInSuccess(String checkInTime, String earliestOutTime, String status) {
         return SEPARATOR + "\n" +
-                "✅ <b>CHECK-IN THÀNH CÔNG</b>\n" +
-                SEPARATOR + "\n\n" +
+                "✅ <b>CHECK-IN THÀNH CÔNG</b>\n\n" +
                 "⏰ Giờ vào: <b>" + checkInTime + "</b>\n" +
                 "🎯 Giờ về tối thiểu: <b>" + earliestOutTime + "</b> <i>(đủ 8h)</i>\n" +
                 "🏢 Trạng thái: <b>" + status + "</b>\n\n" +
@@ -22,8 +22,7 @@ public class TelegramTemplate {
      */
     public static String morningReminder(String timeSlot, String latestStart) {
         return SEPARATOR + "\n" +
-                "⏰ <b>NHẮC CHẤM CÔNG SÁNG (" + timeSlot + ")</b>\n" +
-                SEPARATOR + "\n\n" +
+                "⏰ <b>NHẮC CHẤM CÔNG SÁNG (" + timeSlot + ")</b>\n\n" +
                 "⚠️ <b>Bạn chưa bấm Check-in trên HRM!</b>\n" +
                 "🏢 Giờ làm việc linh hoạt hạn chót: <b>" + latestStart + "</b>\n\n" +
                 "👉 Hãy chấm công ngay khi đến công ty.";
@@ -34,8 +33,7 @@ public class TelegramTemplate {
      */
     public static String lateCheckInAlert(String currentTime, String latestStart, String hrmUrl) {
         return SEPARATOR + "\n" +
-                "🚨 <b>BÁO ĐỘNG: QUÁ GIỜ CHẤM CÔNG</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🚨 <b>BÁO ĐỘNG: QUÁ GIỜ CHẤM CÔNG</b>\n\n" +
                 "⚠️ Hiện tại là <b>" + currentTime + "</b> (đã quá hạn <b>" + latestStart + "</b>)!\n" +
                 "❌ Hệ thống HRM <b>chưa ghi nhận Check-in</b> của bạn.\n\n" +
                 "👉 Vào ngay <a href=\"" + hrmUrl + "\">HRM System</a> để chấm công hoặc làm đơn giải trình!";
@@ -46,8 +44,7 @@ public class TelegramTemplate {
      */
     public static String minimumHoursReached(String checkInTime, String earliestOutTime) {
         return SEPARATOR + "\n" +
-                "🎉 <b>ĐÃ ĐỦ GIỜ LÀM VIỆC HÔM NAY</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🎉 <b>ĐÃ ĐỦ GIỜ LÀM VIỆC HÔM NAY</b>\n\n" +
                 "⏰ Giờ vào: <b>" + checkInTime + "</b>\n" +
                 "🎯 Đến <b>" + earliestOutTime + "</b> bạn đã hoàn thành đủ 8 tiếng.\n\n" +
                 "🔔 <i>Khi nào kết thúc ca làm, nhớ bấm Check-out nhé!</i>";
@@ -59,8 +56,7 @@ public class TelegramTemplate {
     public static String eveningReminder(String timeSlot, String currentTime, String checkInTime) {
         String inText = (checkInTime != null && !checkInTime.isBlank()) ? checkInTime : "--:--";
         return SEPARATOR + "\n" +
-                "🔔 <b>NHẮC CHECK-OUT (" + timeSlot + ")</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🔔 <b>NHẮC CHECK-OUT (" + timeSlot + ")</b>\n\n" +
                 "🚪 Hiện tại là <b>" + currentTime + "</b>, bạn <b>CHƯA BẤM CHECK-OUT</b>.\n" +
                 "⏰ Giờ vào hôm nay: <b>" + inText + "</b>\n\n" +
                 "👉 Nếu chuẩn bị ra về, hãy bấm Check-out ngay kẻo quên!";
@@ -72,8 +68,7 @@ public class TelegramTemplate {
     public static String lateEveningAlert(String currentTime, String checkInTime) {
         String inText = (checkInTime != null && !checkInTime.isBlank()) ? checkInTime : "--:--";
         return SEPARATOR + "\n" +
-                "⚠️ <b>CẢNH BÁO: BẠN CÓ QUÊN CHECK-OUT?</b>\n" +
-                SEPARATOR + "\n\n" +
+                "⚠️ <b>CẢNH BÁO: BẠN CÓ QUÊN CHECK-OUT?</b>\n\n" +
                 "🌙 Đã <b>" + currentTime + "</b> nhưng chưa có bản ghi Check-out trên HRM.\n" +
                 "⏰ Giờ vào: <b>" + inText + "</b>\n\n" +
                 "👉 Nếu đã về nhà, hãy vào HRM giải trình bổ sung check-out!";
@@ -85,8 +80,7 @@ public class TelegramTemplate {
     public static String shutdownAlert(String checkInTime) {
         String inText = (checkInTime != null && !checkInTime.isBlank()) ? checkInTime : "--:--";
         return SEPARATOR + "\n" +
-                "🚨 <b>CẢNH BÁO: TẮT MÁY NHƯNG CHƯA CHECK-OUT!</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🚨 <b>CẢNH BÁO: TẮT MÁY NHƯNG CHƯA CHECK-OUT!</b>\n\n" +
                 "⚠️ Phát hiện máy tính đang <b>TẮT / RỜI BÀN LÀM VIỆC</b>!\n" +
                 "⏰ Giờ vào hôm nay: <b>" + inText + "</b>\n" +
                 "🚪 Giờ ra: <b>Chưa bấm Check-out</b>\n\n" +
@@ -98,8 +92,7 @@ public class TelegramTemplate {
      */
     public static String hrmApprovalNotification(String title, String content, String createdAt) {
         return SEPARATOR + "\n" +
-                "🔔 <b>KẾT QUẢ DUYỆT ĐƠN TỪ HRM</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🔔 <b>KẾT QUẢ DUYỆT ĐƠN TỪ HRM</b>\n\n" +
                 "📌 <b>" + escapeHtml(title) + "</b>\n" +
                 "📝 " + escapeHtml(content) + "\n\n" +
                 "⏰ Thời gian: <b>" + formatTime(createdAt) + "</b>";
@@ -110,8 +103,7 @@ public class TelegramTemplate {
      */
     public static String missingCheckInWithCheckOut(String checkOutTime, String status) {
         return SEPARATOR + "\n" +
-                "🚨 <b>CẢNH BÁO: CÓ CHECK-OUT NHƯNG THIẾU CHECK-IN SÁNG!</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🚨 <b>CẢNH BÁO: CÓ CHECK-OUT NHƯNG THIẾU CHECK-IN SÁNG!</b>\n\n" +
                 "🚪 Hệ thống ghi nhận bạn đã Check-out lúc: <b>" + checkOutTime + "</b>\n" +
                 "❌ Nhưng <b>BUỔI SÁNG BẠN CHƯA BẤM CHECK-IN</b>!\n" +
                 "📊 Trạng thái hiện tại: <b>" + (status != null ? status : "N/A") + "</b>\n\n" +
@@ -137,8 +129,7 @@ public class TelegramTemplate {
 
         StringBuilder sb = new StringBuilder();
         sb.append(SEPARATOR).append("\n");
-        sb.append(headerTitle).append("\n");
-        sb.append(SEPARATOR).append("\n\n");
+        sb.append(headerTitle).append("\n\n");
         sb.append("⏰ Giờ vào: <b>").append(checkInTime != null ? checkInTime : "--:--").append("</b> | Giờ ra: <b>").append(checkOutTime).append("</b>\n");
         sb.append("⏳ Thời gian thực tế: <b>").append(hoursWorked).append(" giờ ").append(minsWorked).append(" phút</b>\n");
         sb.append("🎯 Giờ ra tối thiểu yêu cầu: <b>").append(earliestOutTime).append("</b> <i>(đủ 8h làm việc)</i>\n");
@@ -166,8 +157,7 @@ public class TelegramTemplate {
 
         StringBuilder sb = new StringBuilder();
         sb.append(SEPARATOR).append("\n");
-        sb.append(header).append("\n");
-        sb.append(SEPARATOR).append("\n\n");
+        sb.append(header).append("\n\n");
         sb.append("⏰ Giờ vào: <b>").append(checkInTime != null ? checkInTime : "--:--").append("</b> | Giờ ra: <b>").append(checkOutTime).append("</b>\n");
         sb.append("⏳ Tổng thời gian làm việc: <b>").append(hoursWorked).append(" giờ ").append(minsWorked).append(" phút</b>\n");
         sb.append("📊 Trạng thái hệ thống: <b>").append(status != null ? status : "ĐỦ CÔNG").append("</b>\n\n");
@@ -185,8 +175,7 @@ public class TelegramTemplate {
      */
     public static String remindReCheckOutAtTarget(String checkInTime, String currentTime, String previousCheckOutTime, String earliestOutTime) {
         return SEPARATOR + "\n" +
-                "⏰ <b>ĐÃ ĐẾN GIỜ ĐỦ CÔNG — HÃY CHECK-OUT LẠI!</b>\n" +
-                SEPARATOR + "\n\n" +
+                "⏰ <b>ĐÃ ĐẾN GIỜ ĐỦ CÔNG — HÃY CHECK-OUT LẠI!</b>\n\n" +
                 "⏰ Giờ vào: <b>" + (checkInTime != null ? checkInTime : "--:--") + "</b> | Mốc đủ công: <b>" + earliestOutTime + "</b>\n" +
                 "🚪 Lúc <b>" + previousCheckOutTime + "</b> bạn từng bấm Check-out khi chưa đủ công.\n" +
                 "🎯 Bây giờ (<b>" + currentTime + "</b>) bạn đã hoàn thành đủ 8 tiếng!\n\n" +
@@ -198,8 +187,7 @@ public class TelegramTemplate {
      */
     public static String shutdownIncompleteAlert(String checkInTime, String checkOutTime, String earliestOutTime, String status) {
         return SEPARATOR + "\n" +
-                "🚨 <b>BÁO ĐỘNG: ĐANG TẮT MÁY NHƯNG CHƯA CHECK-OUT ĐỦ CÔNG!</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🚨 <b>BÁO ĐỘNG: ĐANG TẮT MÁY NHƯNG CHƯA CHECK-OUT ĐỦ CÔNG!</b>\n\n" +
                 "⏰ Giờ vào: <b>" + (checkInTime != null ? checkInTime : "--:--") + "</b> | Check-out trước đó: <b>" + checkOutTime + "</b>\n" +
                 "🎯 Giờ ra tối thiểu yêu cầu: <b>" + earliestOutTime + "</b>\n" +
                 "📊 Trạng thái hệ thống: <b>" + (status != null ? status : "Chưa đủ công") + "</b>\n\n" +
@@ -211,8 +199,7 @@ public class TelegramTemplate {
      */
     public static String incompleteAttendanceAlert(String workDate, String checkIn, String checkOut, String status) {
         return SEPARATOR + "\n" +
-                "⚠️ <b>CẢNH BÁO TRẠNG THÁI CÔNG</b>\n" +
-                SEPARATOR + "\n\n" +
+                "⚠️ <b>CẢNH BÁO TRẠNG THÁI CÔNG</b>\n\n" +
                 "📅 Ngày: <b>" + workDate + "</b>\n" +
                 "⏰ In: <b>" + (checkIn != null ? checkIn : "--:--") + "</b> | Out: <b>" + (checkOut != null ? checkOut : "--:--") + "</b>\n" +
                 "📊 Trạng thái: <b>" + status + "</b> <i>(Chưa đủ công)</i>\n\n" +
@@ -224,8 +211,7 @@ public class TelegramTemplate {
      */
     public static String testMessage() {
         return SEPARATOR + "\n" +
-                "🤖 <b>HRM ATTENDANCE TOOL</b>\n" +
-                SEPARATOR + "\n\n" +
+                "🤖 <b>HRM ATTENDANCE TOOL</b>\n\n" +
                 "✅ <b>Kết nối Telegram Bot thành công!</b>\n" +
                 "📱 Các thông báo nhắc nhở chấm công và duyệt đơn sẽ được gửi tự động tới đây.";
     }
