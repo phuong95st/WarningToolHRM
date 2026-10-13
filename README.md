@@ -1,1 +1,246 @@
-# WarningToolHRM
+# 🚀 HRM Attendance Warning Tool — Phiên Bản Release v1.0
+
+Ứng dụng Java chuyên nghiệp chạy nền giúp nhân viên công ty **GM Group** tự động theo dõi chấm công realtime từ hệ thống **HRM** (`http://hrm.gm-group.vn`), tự động cảnh báo lên **Điện thoại (Telegram Bot)** và **Máy tính (Windows System Tray & Notification)** để **không bao giờ quên check-in / check-out hoặc thiếu giờ làm**.
+
+---
+
+## 📋 MỤC LỤC
+1. [Tính Năng Cốt Lõi](#-tính-năng-cốt-lõi)
+2. [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống)
+3. [Hướng Dẫn Cấu Hình (Chỉ 2 Phút)](#-hướng-dẫn-cấu-hình-chỉ-2-phút)
+4. [Hướng Dẫn Khởi Chạy & Sử Dụng](#-hướng-dẫn-khởi-chạy--sử-dụng)
+5. [Cấu Hình Tự Khởi Động Cùng Windows](#-cấu-hình-tự-khởi-động-cùng-windows)
+6. [Cấu Hình Cho Nhân Viên Khác](#-cấu-hình-cho-nhân-viên-khác)
+7. [Chẩn Đoán & Xử Lý Sự Cố (Troubleshooting)](#-chẩn-đoán--xử-lý-sự-cố-troubleshooting)
+8. [Báo Cáo Kiểm Thử Chất Lượng (QA Test Report)](#-báo-cáo-kiểm-thử-chất-lượng-qa-test-report)
+9. [Cấu Trúc Thư Mục Phát Hành (Release Package)](#-cấu-trúc-thư-mục-phát-hành-release-package)
+10. [Nhật Ký Phiên Bản (Changelog)](#-nhật-ký-phiên-bản-changelog)
+
+---
+
+## 🌟 TÍNH NĂNG CỐT LÕI
+
+### 1. 🔑 Tự Động Đăng Nhập SSO Azure AD Ngầm (Playwright)
+* Sử dụng thư viện **Microsoft Playwright** kết hợp trình duyệt Microsoft Edge có sẵn trên máy tính để đăng nhập ngầm không gián đoạn.
+* Tự động lấy và gia hạn Bearer Token JWT khi token hết hạn hoặc máy chủ trả về `401 Unauthorized`.
+* Tự động lưu cache phiên vào thư mục `playwright_profile` để đăng nhập siêu tốc ở các lần tiếp theo.
+
+### 2. ⏰ Quy Tắc Cảnh Báo Chấm Công Thông Minh (Giờ Linh Hoạt)
+* **Khung giờ sáng linh hoạt (08:30 – 09:00)**:
+  * Nhắc nhở chấm công định kỳ vào các mốc `08:30`, `08:45`, `08:55` nếu hệ thống chưa ghi nhận Check-in.
+  * **Báo động đỏ khẩn cấp** sau `09:00` nếu vẫn chưa bấm chấm công.
+* **Tự động tính giờ về tối thiểu**:
+  * Ngay khi check-in (ví dụ vào lúc `08:44`), tool tự động cộng đủ 8 tiếng làm việc + 1 tiếng nghỉ trưa = **9 tiếng** (về tối thiểu `17:44`) và gửi thông báo xác nhận.
+* **Khung giờ chiều & tối**:
+  * Thông báo ngay khi hoàn thành đủ 8 tiếng công trong ngày.
+  * Nhắc nhở bấm Check-out vào các mốc `17:35`, `18:05`, `18:30`, `19:00`, `20:00`.
+* **⚠️ Cảnh báo Check-out THÔNG MINH khi CHƯA ĐỦ CÔNG / Về sớm (Hỗ trợ Check-out nhiều lần)**:
+  * **Lần 1 chưa đủ công**: Bấm check-out sớm (ví dụ vào 08:50, về lúc 16:30) -> Tool cảnh báo rõ số giờ đã làm (7h40m), giờ tối thiểu yêu cầu (17:50), và số phút còn thiếu (thiếu 80 phút).
+  * **Tự nhắc Check-out lại khi đến mốc đủ giờ**: Nếu bạn ở lại văn phòng làm tiếp, đúng lúc chạm mốc 8 tiếng (17:50), tool sẽ gửi thông báo: *"Đã đến mốc đủ công, hãy bấm Check-out lại trên HRM ngay!"*.
+  * **Lần 2, 3 nếu vẫn chưa đủ công**: Nếu bạn bấm lại (ví dụ 17:15) mà vẫn chưa đủ giờ, tool tiếp tục cảnh báo chính xác số phút còn thiếu cho lần bấm mới.
+  * **Lần chốt ĐỦ CÔNG (Lần 2, 3 hoặc 4)**: Ngay khi bạn bấm Check-out lại và đạt `ĐỦ CÔNG` (ví dụ 18:00), tool lập tức gửi thông báo chúc mừng: *"🎉 Xác nhận Check-out lại thành công & Đã đủ công!"*, đồng thời tự động dừng mọi nhắc nhở chiều/tối!
+  * **Cơ chế chống spam tuyệt đối**: Nếu bạn không bấm lại (giờ check-out giữ nguyên), tool tuyệt đối không gửi lại thông báo trùng lặp.
+* **🚨 Cảnh báo Sáng KHÔNG Check-in mà chiều lại có Check-out**:
+  * Nếu sáng quên chấm công vào nhưng chiều lại bấm ra, tool phát hiện ngay trạng thái bất thường và bắn thông báo khẩn cấp hướng dẫn vào HRM làm đơn Giải trình quên check-in để không bị trừ công.
+* **🚨 Cảnh báo đi về mà quên Check-out (Shutdown Hook)**:
+  * Khi bạn **tắt máy tính (Shutdown)**, khởi động lại (Restart), hoặc thoát ứng dụng vào ngày làm việc mà chưa bấm Check-out (hoặc trước đó check-out chưa đủ công), tool lập tức bắn thông báo khẩn cấp lên Telegram!
+
+### 3. 🏖️ Tự Động Nhận Biết Cuối Tuần & Lịch Nghỉ Lễ Công Ty
+* Tự động nhận biết Thứ Bảy và Chủ Nhật để tắt toàn bộ cảnh báo chấm công.
+* Tự động đồng bộ lịch nghỉ lễ (Du lịch Teambuilding, Quốc Khánh, Tết...) từ API `http://hrm.gm-group.vn/api/holidays`.
+* Tuyệt đối không gửi cảnh báo sai vào các ngày nghỉ lễ.
+
+### 4. 🔔 Giám Sát Realtime & Bắn Thông Báo Duyệt Đơn (Nghỉ Phép, Remote, OT)
+* Tự động gọi API `http://hrm.gm-group.vn/api/notifications/mine` mỗi 2 phút.
+* Bắn thông báo tức thì lên Telegram khi có kết quả duyệt:
+  * ✅ **Đơn nghỉ phép năm** đã được duyệt.
+  * ✅ **Đăng ký Remote (làm việc từ xa)** đã được duyệt (kèm số công được duyệt).
+  * ✅ **Đơn làm thêm giờ (OT)** đã được duyệt (kèm số giờ và tên dự án).
+  * ✅ **Thông báo lịch nghỉ lễ mới**.
+* Có cơ chế lưu mốc (`notification_state.json`) để **chống spam**, chỉ gửi các thông báo mới phát sinh.
+
+### 5. 📱 Template Thông Báo Telegram Tối Ưu Cho Mobile
+* Mỗi thông báo có đường viền phân cách `━━━━━━━━━━━━━━━━━━━━━` trên đầu để phân biệt rõ ràng khi nhận nhiều tin nhắn liên tiếp.
+* Độ rộng tin nhắn được căn chỉnh chuẩn theo màn hình điện thoại, in đậm các thông tin cốt lõi (giờ vào, giờ về, trạng thái).
+
+### 6. 📂 Quản Lý Log Tự Động & Retention 30 Ngày
+* Tự động ghi log chi tiết vào `logs/hrm-tool-YYYY-MM-DD.log`.
+* Tự động ghi tóm tắt công ngày vào `logs/attendance-summary-YYYY-MM-DD.log`.
+* Tự động quét và xoá các file log cũ hơn **30 ngày (1 tháng)** để giải phóng ổ cứng.
+
+---
+
+## 💻 YÊU CẦU HỆ THỐNG
+* **Hệ điều hành**: Windows 10 / Windows 11 (64-bit).
+* **Môi trường Java**: Java Runtime Environment (JRE) hoặc JDK 21 trở lên (đã cài đặt).
+* **Trình duyệt**: Microsoft Edge (có sẵn mặc định trên Windows) hoặc Google Chrome.
+
+---
+
+## ⚙️ HƯỚNG DẪN CẤU HÌNH (CHỈ 2 PHÚT)
+
+Mở file [`config.properties`](file:///D:/03.Work/WarningToolHRM/config.properties) tại thư mục gốc của tool bằng Notepad:
+
+```properties
+# ===================================================================
+# HRM Attendance Warning Tool Configuration
+# ===================================================================
+
+# 1. Địa chỉ máy chủ HRM
+hrm.url=http://hrm.gm-group.vn
+hrm.api.attendance.path=/api/attendance/today
+hrm.api.holidays.path=/api/holidays
+hrm.api.notifications.path=/api/notifications/mine
+
+# 2. Tài khoản Microsoft SSO
+microsoft.username=phuongnh@gm-group.vn
+microsoft.password=Goq67197
+
+# 3. Cấu hình nhận cảnh báo qua Telegram Bot
+telegram.enabled=true
+telegram.bot.token=DÁN_BOT_TOKEN_VÀO_ĐÂY
+telegram.chat.id=DÁN_CHAT_ID_VÀO_ĐÂY
+
+# 4. Khung giờ làm việc linh hoạt
+work.flexible.earliest.start=08:30
+work.flexible.latest.start=09:00
+work.required.span.hours=9
+
+# 5. Các mốc giờ nhắc nhở sáng và chiều
+reminders.morning=08:30,08:45,08:55
+reminders.evening=17:35,18:05,18:30,19:00,20:00
+
+# 6. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
+check.interval.minutes=2
+log.retention.days=30
+```
+
+### 📱 Các bước lấy Bot Token & Chat ID Telegram:
+1. Mở Telegram, tìm kiếm bot **`@BotFather`** -> Gõ `/newbot` -> Đặt tên bot -> Nhận **Bot Token** (dạng `123456789:ABCdefGhIJKlmNo...`).
+2. Mở Telegram tìm bot **`@userinfobot`** -> Bấm Start -> Lấy **Id** của bạn (dạng số, ví dụ `123456789`).
+3. Điền Token và Chat ID vào file `config.properties`.
+4. Tìm đến bot vừa tạo của bạn trên Telegram và bấm nút **Start** một lần để cho phép bot gửi tin nhắn.
+
+---
+
+## 🏃 HƯỚNG DẪN KHỞI CHẠY & SỬ DỤNG
+
+### Cách 1: Chạy ngầm trong Background (Khuyên dùng hàng ngày)
+* **Nhấp đúp chuột vào file**: [`run-background.vbs`](file:///D:/03.Work/WarningToolHRM/run-background.vbs)
+* **Hiện tượng**: Không có cửa sổ màn hình đen nào xuất hiện. Ở khay hệ thống (góc dưới bên phải màn hình cạnh đồng hồ) sẽ xuất hiện biểu tượng chữ **H** màu xanh dương.
+* **Menu tiện ích trên khay hệ thống**: Chuột phải vào biểu tượng chữ **H** để:
+  * Xem trạng thái chấm công hôm nay.
+  * Bấm **"Kiểm tra ngay"** để đồng bộ chấm công và duyệt đơn tức thì.
+  * Bấm **"Đăng nhập lại SSO"** nếu muốn chủ động lấy token mới.
+  * Bấm **"Thử gửi tin nhắn Telegram"** để test bot.
+  * Bấm **"Mở trang web HRM"** để vào nhanh hệ thống chấm công.
+  * Bấm **"Mở thư mục Logs"** để kiểm tra lịch sử.
+  * Bấm **"Thoát"** khi muốn dừng tool.
+
+### Cách 2: Chạy hiển thị Console (Dùng khi kiểm tra / debug)
+* **Nhấp đúp chuột vào file**: [`run.bat`](file:///D:/03.Work/WarningToolHRM/run.bat)
+* Cửa sổ dòng lệnh sẽ hiển thị chi tiết các bản ghi log và phản hồi của hệ thống.
+
+### Cách 3: Dừng ứng dụng
+* Chuột phải vào icon chữ **H** ở khay hệ thống chọn **Thoát**, HOẶC:
+* **Nhấp đúp chuột vào file**: [`stop.bat`](file:///D:/03.Work/WarningToolHRM/stop.bat).
+
+---
+
+## 🔄 CẤU HÌNH TỰ KHỞI ĐỘNG CÙNG WINDOWS
+
+Để mỗi ngày khi bạn bật máy tính lên, tool sẽ tự động chạy ngầm bảo vệ công của bạn:
+1. Nhấn tổ hợp phím **`Windows + R`** trên bàn phím.
+2. Nhập lệnh:
+   ```text
+   shell:startup
+   ```
+   rồi nhấn **Enter**. Thư mục Khởi động của Windows sẽ mở ra.
+3. Nhấp chuột phải vào file [`run-background.vbs`](file:///D:/03.Work/WarningToolHRM/run-background.vbs) -> Chọn **Show more options** -> Chọn **Create shortcut** (Tạo lối tắt).
+4. Kéo thả file shortcut vừa tạo vào thư mục Startup đã mở ở Bước 2.
+5. Xong! Từ nay mỗi khi bật máy tính, tool sẽ tự động chạy ngầm.
+
+---
+
+## 👥 CẤU HÌNH CHO NHÂN VIÊN KHÁC
+
+Tool được thiết kế hoàn toàn linh hoạt để chuyển giao cho nhân viên khác dùng:
+1. Mở file [`config.properties`](file:///D:/03.Work/WarningToolHRM/config.properties):
+   * Thay đổi `microsoft.username` và `microsoft.password` sang tài khoản của nhân viên mới.
+   * Cập nhật `telegram.chat.id` sang tài khoản Telegram của nhân viên mới.
+2. **Cơ chế tự bảo vệ dữ liệu (Auto-purge)**:
+   * Tool tự động nhận biết khi đổi `username`, sẽ **tự động xóa sạch token cũ** và profile trình duyệt cũ để tránh nhầm lẫn dữ liệu công của người trước.
+   * Khởi động tool bình thường qua `run-background.vbs`.
+
+---
+
+## 🔍 CHẨN ĐOÁN & XỬ LÝ SỰ CỐ (TROUBLESHOOTING)
+
+| Triệu chứng | Nguyên nhân | Cách khắc phục |
+| :--- | :--- | :--- |
+| **System Tray báo: "Mất kết nối Internet hoặc lỗi DNS"** | Máy tính đang mất mạng hoặc DNS không phân giải được `hrm.gm-group.vn` | Kiểm tra lại dây mạng/Wifi công ty. Tool sẽ tự động kết nối lại khi có mạng. |
+| **System Tray báo: "Máy chủ HRM bảo trì (HTTP 502/503)"** | Server nội bộ của công ty đang restart hoặc bảo trì | Không cần làm gì, tool ghi nhận log và sẽ thử lại mỗi 2 phút cho đến khi server phục hồi. |
+| **Báo lỗi xác thực Microsoft SSO** | Đổi mật khẩu Microsoft nhưng chưa cập nhật vào tool | Mở file `config.properties`, cập nhật lại mật khẩu mới tại dòng `microsoft.password`. |
+| **Microsoft yêu cầu 2FA / Authenticator** | Tài khoản bật xác thực 2 bước trên thiết bị lạ | Chuột phải vào biểu tượng khay hệ thống -> Chọn "Đăng nhập lại SSO", hoặc mở file `config.properties` đổi `browser.headless=false` để trình duyệt hiện lên cho bạn bấm duyệt trên điện thoại 1 lần. |
+| **Không nhận được tin nhắn Telegram** | Chưa bấm Start bot hoặc điền sai Chat ID | Kiểm tra lại `telegram.bot.token` và `telegram.chat.id`. Mở bot trên Telegram bấm `/start` một lần. |
+
+---
+
+## 🧪 BÁO CÁO KIỂM THỬ CHẤT LƯỢNG (QA TEST REPORT)
+
+* **Bộ kiểm thử tự động (JUnit 5 - 15/15 Tests Passed 100%)**:
+  * ✅ `testWeekendNoAlerts`: Cuối tuần (Thứ 7, CN) tuyệt đối không phát cảnh báo.
+  * ✅ `testHolidayNoAlerts`: Ngày nghỉ lễ (Teambuilding, Quốc Khánh...) tự động bỏ qua cảnh báo.
+  * ✅ `testMorningReminderAt0845`: Nhắc nhở chấm công đúng các mốc quy định (08:30, 08:45, 08:55).
+  * ✅ `testAntiSpamMorningReminder`: Chống spam, không gửi lặp cảnh báo trong cùng mốc giờ.
+  * ✅ `testLateCheckInRedAlert`: Phát báo động đỏ khẩn cấp sau 09:00.
+  * ✅ `testCheckInConfirmed`: Tính đúng giờ về tối thiểu (+9h gồm làm việc và nghỉ trưa).
+  * ✅ `testReached8Hours`: Thông báo chính xác khi hoàn thành đủ 8 tiếng.
+  * ✅ `testEveningReminderAt1805`: Nhắc nhở check-out đúng các mốc giờ chiều/tối.
+  * ✅ `testCompletedWorkNoAlert`: Đã check-out đủ công thì không cảnh báo sai.
+  * ✅ `testMissingCheckInWithCheckOut`: Sáng quên check-in nhưng chiều có check-out ➔ Báo động đỏ khẩn cấp nhắc làm đơn giải trình.
+  * ✅ `testEarlyCheckOutIncomplete`: Bấm check-out về sớm/thiếu giờ ➔ Cảnh báo chính xác số giờ đã làm và số phút còn thiếu.
+  * ✅ `testMultipleCheckOuts_IncompleteThenFullWork`: Luồng đa Check-out (Lần 1, 2 chưa đủ ➔ Lần 3 đủ công ➔ Bắn chúc mừng và tắt nhắc nhở).
+  * ✅ `testRemindReCheckOutAtTargetTimeAfterEarlyCheckOut`: Tự động nhắc bấm Check-out lại khi đồng hồ chạm mốc 8 tiếng (sau khi từng bấm về sớm).
+  * ✅ `testUserChangeInvalidation`: Tự động hủy token cũ khi thay đổi tài khoản nhân viên.
+  * ✅ `testExpiredToken`: Kiểm tra hạn và tự động làm mới Bearer token khi hết hạn.
+
+* **Kiểm thử trực tiếp với Server thật (`http://hrm.gm-group.vn`)**:
+  * ✅ Lấy thành công dữ liệu chấm công tháng 10/2026.
+  * ✅ Lấy thành công danh sách các ngày nghỉ lễ từ `/api/holidays`.
+  * ✅ Lấy và khởi tạo mốc theo dõi duyệt đơn từ `/api/notifications/mine`.
+  * ✅ Đóng gói production FAT JAR ([`WarningToolHRM-1.0.0.jar`](file:///D:/03.Work/WarningToolHRM/target/WarningToolHRM-1.0.0.jar)) thành công 100% và sẵn sàng release!
+
+---
+
+## 📦 CẤU TRÚC THƯ MỤC PHÁT HÀNH (RELEASE PACKAGE)
+
+```text
+WarningToolHRM/
+├── config.properties          # File cấu hình duy nhất (Tài khoản, Telegram, Khung giờ)
+├── run-background.vbs         # Khởi chạy ngầm (Không hiện màn hình đen, khuyến nghị)
+├── run.bat                    # Khởi chạy hiển thị cửa sổ console (Dùng khi debug)
+├── stop.bat                   # Dừng toàn bộ tiến trình tool đang chạy ngầm
+├── README.md                  # Tài liệu hướng dẫn sử dụng chi tiết
+├── target/
+│   └── WarningToolHRM-1.0.0.jar  # File thực thi Java duy nhất đã đóng gói thư viện
+├── logs/                      # Thư mục lưu nhật ký tự động (tự xoá sau 30 ngày)
+│   ├── hrm-tool-YYYY-MM-DD.log
+│   └── attendance-summary-YYYY-MM-DD.log
+├── token.json                 # Cache Bearer JWT an toàn (tự động tạo)
+└── notification_state.json    # Mốc id thông báo duyệt đơn đã gửi (chống spam)
+```
+
+---
+
+## 📝 NHẬT KÝ PHIÊN BẢN (CHANGELOG)
+
+### Phiên Bản v1.0.0 (Official Release — 13/10/2026)
+* 🚀 **Core**: Tự động đăng nhập ngầm qua Playwright (Microsoft Edge), tự động lấy và gia hạn Bearer Token JWT.
+* ⏰ **Giờ làm việc linh hoạt**: Hỗ trợ khung giờ vào 08:30 – 09:00, tự động cộng 9 tiếng (8h làm việc + 1h trưa) để tính mốc về tối thiểu.
+* 🔄 **Multi-Checkout Intelligence**: Hỗ trợ nhân viên check-out nhiều lần trong ngày; cảnh báo số phút còn thiếu cho mỗi lần bấm sớm; tự động nhắc check-out lại khi đến giờ đủ công; chúc mừng khi chốt `ĐỦ CÔNG`.
+* 🚨 **Edge Cases**: Cảnh báo khẩn cấp khi có Check-out nhưng thiếu Check-in sáng; Cảnh báo Shutdown Hook khi tắt máy tính mà quên check-out hoặc check-out chưa đủ công.
+* 🏖️ **Lịch làm việc**: Tự động bỏ qua Thứ 7, Chủ Nhật và lịch nghỉ lễ lấy từ API công ty.
+* 🔔 **Duyệt đơn realtime**: Bắn thông báo kết quả duyệt đơn Nghỉ phép, Remote, OT tức thì lên Telegram.
+* 💻 **Giao diện**: Windows System Tray (Khay hệ thống) với biểu tượng chữ H, menu chuột phải nhanh và Desktop Toasts.
+* 📂 **Quản lý Log**: Tự động xoá file log sau 30 ngày (1 tháng).

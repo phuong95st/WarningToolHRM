@@ -1,0 +1,31 @@
+# ===================================================================
+# HRM Attendance Warning Tool Configuration (Template)
+# ===================================================================
+
+# 1. Địa chỉ máy chủ HRM
+hrm.url=http://hrm.gm-group.vn
+hrm.api.attendance.path=/api/attendance/today
+hrm.api.holidays.path=/api/holidays
+hrm.api.notifications.path=/api/notifications/mine
+
+# 2. Tài khoản Microsoft SSO
+microsoft.username=your_email@gm-group.vn
+microsoft.password=your_password
+
+# 3. Cấu hình nhận cảnh báo qua Telegram Bot
+telegram.enabled=true
+telegram.bot.token=YOUR_BOT_TOKEN_HERE
+telegram.chat.id=YOUR_CHAT_ID_HERE
+
+# 4. Khung giờ làm việc linh hoạt
+work.flexible.earliest.start=08:30
+work.flexible.latest.start=09:00
+work.required.span.hours=9
+
+# 5. Các mốc giờ nhắc nhở sáng và chiều
+reminders.morning=08:30,08:45,08:55
+reminders.evening=17:35,18:05,18:30,19:00,20:00
+
+# 6. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
+check.interval.minutes=2
+log.retention.days=30

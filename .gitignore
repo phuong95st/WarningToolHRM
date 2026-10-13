@@ -1,0 +1,8 @@
+target/
+logs/
+playwright_profile/
+dependency-reduced-pom.xml
+.idea/
+*.iml
+token.json
+notification_state.json
