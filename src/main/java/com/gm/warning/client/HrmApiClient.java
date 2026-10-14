@@ -2,20 +2,7 @@ package com.gm.warning.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gm.warning.config.AppConfig;
-import com.gm.warning.model.AttendanceResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.ConnectException;
-import java.net.URI;
-import java.net.UnknownHostException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
-import java.time.Duration;
-import com.gm.warning.model.HolidayItem;
-import com.gm.warning.model.HolidaysResponse;
+import com.gm.warning.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +16,7 @@ import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class HrmApiClient {
@@ -254,5 +242,85 @@ public class HrmApiClient {
             log.warn("Lỗi khi tải thông báo HRM: {}", e.getMessage());
         }
         return java.util.Collections.emptyList();
+    }
+
+    /**
+     * Tải thông tin số dư ngày phép theo năm từ /api/leave/balance?year={year}
+     */
+    public synchronized LeaveBalanceData fetchLeaveBalance(int year) {
+        ensureValidToken();
+        String token = tokenCache.getToken();
+        if (token == null || token.isBlank()) return null;
+
+        String url = String.format("%s%s?year=%d", config.getHrmUrl(), config.getLeaveBalanceApiPath(), year);
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (httpResponse.statusCode() == 200) {
+                LeaveBalanceResponse res = mapper.readValue(httpResponse.body(), LeaveBalanceResponse.class);
+                if (res != null && res.isSuccess() && res.getData() != null) {
+                    return res.getData();
+                }
+            } else if (httpResponse.statusCode() == 401) {
+                log.warn("[401] Token hết hạn khi gọi API phép. Thử login lại...");
+                String newToken = ssoLoginService.performSsoLogin();
+                if (newToken != null) {
+                    return fetchLeaveBalance(year);
+                }
+            } else {
+                log.warn("Gọi API số dư phép thất bại HTTP {}: {}", httpResponse.statusCode(), httpResponse.body());
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi gọi API số dư phép: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Tải danh sách đơn làm thêm giờ (OT) của tôi từ /api/overtime/requests/mine
+     */
+    public synchronized List<OvertimeItem> fetchOvertimeRequests() {
+        ensureValidToken();
+        String token = tokenCache.getToken();
+        if (token == null || token.isBlank()) return Collections.emptyList();
+
+        String url = config.getHrmUrl() + config.getOvertimeApiPath();
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (httpResponse.statusCode() == 200) {
+                OvertimeResponse res = mapper.readValue(httpResponse.body(), OvertimeResponse.class);
+                if (res != null && res.isSuccess() && res.getData() != null) {
+                    return res.getData();
+                }
+            } else if (httpResponse.statusCode() == 401) {
+                log.warn("[401] Token hết hạn khi gọi API OT. Thử login lại...");
+                String newToken = ssoLoginService.performSsoLogin();
+                if (newToken != null) {
+                    return fetchOvertimeRequests();
+                }
+            } else {
+                log.warn("Gọi API OT thất bại HTTP {}: {}", httpResponse.statusCode(), httpResponse.body());
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi gọi API OT: {}", e.getMessage());
+        }
+        return Collections.emptyList();
     }
 }

@@ -66,13 +66,24 @@
   * ✅ **Thông báo lịch nghỉ lễ mới**.
 * Có cơ chế lưu mốc (`notification_state.json`) để **chống spam**, chỉ gửi các thông báo mới phát sinh.
 
-### 5. 📱 Template Thông Báo Telegram Tối Ưu Cho Mobile
+### 5. 🤖 Tra Cứu Dữ Liệu Tương Tác Qua Telegram Bot (Bot Commands)
+Bạn có thể nhắn tin trực tiếp cho Bot trên Telegram để tra cứu dữ liệu chấm công và nhân sự cá nhân bất cứ lúc nào:
+* 📅 **`/chamcong` [tháng/năm]**: Xem chi tiết danh sách từng ngày chấm công trong tháng chỉ định (mặc định tháng hiện tại), thống kê số ngày đủ công, về sớm, giờ vào, giờ ra của từng ngày.
+  * *Ví dụ*: `/chamcong` hoặc `/chamcong 09/2026`
+* 🏖 **`/phep` [năm]**: Xem tổng số ngày phép năm, số ngày phép đã sử dụng và số ngày phép còn lại thông qua API `/api/leave/balance`.
+  * *Ví dụ*: `/phep` hoặc `/phep 2026`
+* 📋 **`/donnghi`**: Xem chi tiết danh sách các đơn xin nghỉ phép, nghỉ Remote và trạng thái duyệt gần đây.
+* ⏰ **`/ot`**: Xem chi tiết danh sách các đơn đăng ký làm thêm giờ (OT), số giờ được duyệt, lý do, dự án và người phê duyệt thông qua API `/api/overtime/requests/mine`.
+* ❓ **`/help`**: Xem menu hướng dẫn sử dụng bot.
+* *Hỗ trợ menu gợi ý lệnh nhanh (Menu Button)*: Khi mở chat với bot, Telegram sẽ hiển thị sẵn danh sách lệnh để bạn bấm chọn trực tiếp không cần gõ.
+
+### 6. 📱 Template Thông Báo Telegram Tối Ưu Cho Mobile
 * Mỗi thông báo có đường viền phân cách `━━━━━━━━━━━━━━━━` (16 ký tự) trên đầu để phân biệt rõ ràng khi nhận nhiều tin nhắn liên tiếp.
 * **Tiêu đề IN HOA ngắn gọn ($\le 24$ ký tự)**: Luôn nằm gọn trên 1 dòng duy nhất trên điện thoại, tuyệt đối không bị rớt lẻ loi một chữ xuống dòng tiếp theo.
 * **Bố cục đối xứng**: Khoảng cách đều 1 dòng trống phía trên và phía dưới khối thông tin, mang lại trải nghiệm xem thoáng mắt.
 * **In đậm nổi bật thông tin cốt lõi**: Mốc giờ ra yêu cầu (`17:50`), các hành động quan trọng (`Check-in ngay`, `Check-out ngay`, `ĐỦ CÔNG`) được làm nổi bật để dễ nắm bắt ngay khi nhìn lướt qua.
 
-### 6. 📂 Quản Lý Log Tự Động & Retention 30 Ngày
+### 7. 📂 Quản Lý Log Tự Động & Retention 30 Ngày
 * Tự động ghi log chi tiết vào `logs/hrm-tool-YYYY-MM-DD.log`.
 * Tự động ghi tóm tắt công ngày vào `logs/attendance-summary-YYYY-MM-DD.log`.
 * Tự động quét và xoá các file log cũ hơn **30 ngày (1 tháng)** để giải phóng ổ cứng.

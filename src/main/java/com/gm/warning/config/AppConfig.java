@@ -21,6 +21,8 @@ public class AppConfig {
     private String attendanceApiPath;
     private String holidaysApiPath;
     private String notificationsApiPath;
+    private String leaveBalanceApiPath;
+    private String overtimeApiPath;
     private String microsoftUsername;
     private String microsoftPassword;
     private String browserChannel;
@@ -81,6 +83,8 @@ public class AppConfig {
         attendanceApiPath = getProperty("hrm.api.attendance.path", "/api/attendance/today");
         holidaysApiPath = getProperty("hrm.api.holidays.path", "/api/holidays");
         notificationsApiPath = getProperty("hrm.api.notifications.path", "/api/notifications/mine");
+        leaveBalanceApiPath = getProperty("hrm.api.leave.balance.path", "/api/leave/balance");
+        overtimeApiPath = getProperty("hrm.api.overtime.path", "/api/overtime/requests/mine");
 
         microsoftUsername = getProperty("microsoft.username", "phuongnh@gm-group.vn");
         microsoftPassword = getProperty("microsoft.password", "");
@@ -150,6 +154,8 @@ public class AppConfig {
     public String getAttendanceApiPath() { return attendanceApiPath; }
     public String getHolidaysApiPath() { return holidaysApiPath; }
     public String getNotificationsApiPath() { return notificationsApiPath; }
+    public String getLeaveBalanceApiPath() { return leaveBalanceApiPath; }
+    public String getOvertimeApiPath() { return overtimeApiPath; }
     public String getMicrosoftUsername() { return microsoftUsername; }
     public String getMicrosoftPassword() { return microsoftPassword; }
     public String getBrowserChannel() { return browserChannel; }

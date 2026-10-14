@@ -34,6 +34,7 @@ public class DesktopTrayApp {
     private final TelegramNotifier telegramNotifier;
     private final DesktopToastNotifier desktopNotifier;
     private final com.gm.warning.notification.NotificationMonitorService notificationMonitorService;
+    private final com.gm.warning.notification.TelegramBotService telegramBotService;
 
     private TrayIcon trayIcon;
     private MenuItem statusMenuItem;
@@ -45,7 +46,8 @@ public class DesktopTrayApp {
                           NotificationManager notificationManager,
                           TelegramNotifier telegramNotifier,
                           DesktopToastNotifier desktopNotifier,
-                          com.gm.warning.notification.NotificationMonitorService notificationMonitorService) {
+                          com.gm.warning.notification.NotificationMonitorService notificationMonitorService,
+                          com.gm.warning.notification.TelegramBotService telegramBotService) {
         this.config = config;
         this.hrmApiClient = hrmApiClient;
         this.ssoLoginService = ssoLoginService;
@@ -54,6 +56,7 @@ public class DesktopTrayApp {
         this.telegramNotifier = telegramNotifier;
         this.desktopNotifier = desktopNotifier;
         this.notificationMonitorService = notificationMonitorService;
+        this.telegramBotService = telegramBotService;
     }
 
     public void initTray() {
@@ -140,6 +143,9 @@ public class DesktopTrayApp {
                         JOptionPane.QUESTION_MESSAGE
                 );
                 if (confirm == JOptionPane.YES_OPTION) {
+                    if (telegramBotService != null) {
+                        telegramBotService.stop();
+                    }
                     tray.remove(trayIcon);
                     System.exit(0);
                 }

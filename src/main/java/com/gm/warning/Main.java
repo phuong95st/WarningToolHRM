@@ -54,6 +54,11 @@ public class Main {
         DesktopToastNotifier desktopToastNotifier = new DesktopToastNotifier();
         NotificationManager notificationManager = new NotificationManager(telegramNotifier, desktopToastNotifier);
 
+        // 5.1 Initialize Telegram Bot Command Service (lắng nghe lệnh tra cứu)
+        com.gm.warning.notification.TelegramBotService telegramBotService =
+                new com.gm.warning.notification.TelegramBotService(config, hrmApiClient, telegramNotifier);
+        telegramBotService.start();
+
         // 6. Initialize Notification Monitor (Đơn nghỉ phép, remote, OT)
         com.gm.warning.notification.NotificationMonitorService notificationMonitorService =
                 new com.gm.warning.notification.NotificationMonitorService(hrmApiClient, telegramNotifier, desktopToastNotifier);
@@ -73,7 +78,8 @@ public class Main {
                 notificationManager,
                 telegramNotifier,
                 desktopToastNotifier,
-                notificationMonitorService
+                notificationMonitorService,
+                telegramBotService
         );
 
         SwingUtilities.invokeLater(trayApp::initTray);
