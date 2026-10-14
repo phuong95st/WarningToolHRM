@@ -178,63 +178,30 @@ public class TelegramBotService {
     }
 
     private void handleCommand(String rawText) {
-        String command = rawText.toLowerCase();
-        // Cắt bỏ phần @botname nếu có (ví dụ /chamcong@MyBot -> /chamcong)
-        if (command.contains("@")) {
-            command = command.replaceAll("@[a-zA-Z0-9_]+", "");
+        String clean = rawText.trim();
+        if (clean.contains("@")) {
+            clean = clean.replaceAll("@[a-zA-Z0-9_]+", "");
         }
-
-        String[] parts = command.split("\\s+");
-        String cmd = parts[0];
+        String lower = clean.toLowerCase();
 
         try {
-            switch (cmd) {
-                case "/start":
-                case "/help":
-                case "help":
-                case "hướng dẫn":
-                case "huong dan":
-                    telegramNotifier.sendMessage(TelegramTemplate.botHelpMessage());
-                    break;
-
-                case "/chamcong":
-                case "/cc":
-                case "/attendance":
-                case "chấm công":
-                case "cham cong":
-                    handleAttendanceCommand(parts);
-                    break;
-
-                case "/phep":
-                case "/nghiphep":
-                case "/leave":
-                case "phép":
-                case "phep":
-                case "ngày phép":
-                    handleLeaveBalanceCommand(parts);
-                    break;
-
-                case "/donnghi":
-                case "/don":
-                case "/remote":
-                case "đơn nghỉ":
-                case "don nghi":
-                    handleLeaveRequestsCommand();
-                    break;
-
-                case "/ot":
-                case "/tangca":
-                case "/overtime":
-                case "tăng ca":
-                case "làm thêm":
-                    handleOvertimeCommand();
-                    break;
-
-                default:
-                    if (rawText.startsWith("/")) {
-                        telegramNotifier.sendMessage("⚠️ <b>Lệnh không hợp lệ!</b>\n\nGõ /help để xem danh sách các lệnh được hỗ trợ.");
-                    }
-                    break;
+            if (lower.startsWith("/chamcong") || lower.startsWith("/cc") || lower.startsWith("/attendance")
+                    || lower.startsWith("chấm công") || lower.startsWith("cham cong")) {
+                handleAttendanceCommand(clean);
+            } else if (lower.startsWith("/phep") || lower.startsWith("/nghiphep") || lower.startsWith("/leave")
+                    || lower.startsWith("phép") || lower.startsWith("phep") || lower.startsWith("ngày phép") || lower.startsWith("ngay phep")) {
+                handleLeaveBalanceCommand(clean);
+            } else if (lower.startsWith("/donnghi") || lower.startsWith("/don") || lower.startsWith("/remote")
+                    || lower.startsWith("đơn nghỉ") || lower.startsWith("don nghi") || lower.startsWith("đơn") || lower.startsWith("don")) {
+                handleLeaveRequestsCommand();
+            } else if (lower.startsWith("/ot") || lower.startsWith("/tangca") || lower.startsWith("/overtime")
+                    || lower.startsWith("tăng ca") || lower.startsWith("tang ca") || lower.startsWith("làm thêm") || lower.startsWith("lam them")) {
+                handleOvertimeCommand();
+            } else if (lower.equals("/start") || lower.equals("/help") || lower.equals("help")
+                    || lower.equals("hướng dẫn") || lower.equals("huong dan")) {
+                telegramNotifier.sendMessage(TelegramTemplate.botHelpMessage());
+            } else if (clean.startsWith("/")) {
+                telegramNotifier.sendMessage("⚠️ <b>Lệnh không hợp lệ!</b>\n\nGõ /help để xem danh sách các lệnh được hỗ trợ.");
             }
         } catch (Exception e) {
             log.error("Lỗi khi xử lý lệnh Telegram '{}': {}", rawText, e.getMessage(), e);
@@ -242,33 +209,57 @@ public class TelegramBotService {
         }
     }
 
-    private void handleAttendanceCommand(String[] parts) {
+    private void handleAttendanceCommand(String rawText) {
         LocalDate now = LocalDate.now();
         int year = now.getYear();
         int month = now.getMonthValue();
 
-        if (parts.length > 1) {
-            String arg = parts[1];
-            // Format mm/yyyy hoặc m/yyyy hoặc yyyy-mm hoặc chỉ tháng (1-12)
+        // Tách lấy phần tham số phía sau lệnh
+        String text = rawText.toLowerCase()
+                .replaceAll("^(/chamcong|/cc|/attendance|chấm công|cham cong)", "")
+                .replace("tháng", "")
+                .replace("thang", "")
+                .replace("năm", "")
+                .replace("nam", "")
+                .trim();
+
+        if (!text.isEmpty()) {
             try {
-                if (arg.contains("/")) {
-                    String[] mYear = arg.split("/");
+                if (text.contains("/")) {
+                    String[] mYear = text.split("/");
                     month = Integer.parseInt(mYear[0].trim());
                     year = Integer.parseInt(mYear[1].trim());
-                } else if (arg.contains("-")) {
-                    String[] yMonth = arg.split("-");
-                    year = Integer.parseInt(yMonth[0].trim());
-                    month = Integer.parseInt(yMonth[1].trim());
+                } else if (text.contains("-")) {
+                    String[] yMonth = text.split("-");
+                    if (yMonth[0].trim().length() == 4) {
+                        year = Integer.parseInt(yMonth[0].trim());
+                        month = Integer.parseInt(yMonth[1].trim());
+                    } else {
+                        month = Integer.parseInt(yMonth[0].trim());
+                        year = Integer.parseInt(yMonth[1].trim());
+                    }
                 } else {
-                    int m = Integer.parseInt(arg.trim());
-                    if (m >= 1 && m <= 12) {
-                        month = m;
+                    String[] tokens = text.split("\\s+");
+                    if (tokens.length >= 2) {
+                        month = Integer.parseInt(tokens[0].trim());
+                        year = Integer.parseInt(tokens[1].trim());
+                    } else if (tokens.length == 1) {
+                        int m = Integer.parseInt(tokens[0].trim());
+                        if (m >= 1 && m <= 12) {
+                            month = m;
+                        }
                     }
                 }
             } catch (Exception e) {
-                telegramNotifier.sendMessage("⚠️ Định dạng tháng không đúng! Vui lòng nhập dạng: <code>/chamcong 10/2026</code> hoặc <code>/chamcong 10</code>");
+                telegramNotifier.sendMessage("⚠️ Định dạng tháng không đúng!\nVí dụ hợp lệ: <code>/chamcong 9</code>, <code>/chamcong 09/2026</code> hoặc <code>/chamcong 9 2026</code>");
                 return;
             }
+        }
+
+        if (year < 100) year += 2000;
+        if (month < 1 || month > 12) {
+            telegramNotifier.sendMessage("⚠️ Tháng không hợp lệ (phải từ 1 đến 12).");
+            return;
         }
 
         AttendanceResponse response = hrmApiClient.fetchAttendance(year, month);
@@ -279,11 +270,18 @@ public class TelegramBotService {
         }
     }
 
-    private void handleLeaveBalanceCommand(String[] parts) {
+    private void handleLeaveBalanceCommand(String rawText) {
         int year = LocalDate.now().getYear();
-        if (parts.length > 1) {
+        String text = rawText.toLowerCase()
+                .replaceAll("^(/phep|/nghiphep|/leave|ngày phép|ngay phep|phép|phep)", "")
+                .replace("năm", "")
+                .replace("nam", "")
+                .trim();
+        if (!text.isEmpty()) {
             try {
-                year = Integer.parseInt(parts[1].trim());
+                int y = Integer.parseInt(text);
+                if (y < 100) y += 2000;
+                year = y;
             } catch (Exception ignored) {}
         }
 
