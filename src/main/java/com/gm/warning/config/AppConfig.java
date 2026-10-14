@@ -22,6 +22,7 @@ public class AppConfig {
     private String holidaysApiPath;
     private String notificationsApiPath;
     private String leaveBalanceApiPath;
+    private String leaveRequestsApiPath;
     private String overtimeApiPath;
     private String microsoftUsername;
     private String microsoftPassword;
@@ -84,6 +85,7 @@ public class AppConfig {
         holidaysApiPath = getProperty("hrm.api.holidays.path", "/api/holidays");
         notificationsApiPath = getProperty("hrm.api.notifications.path", "/api/notifications/mine");
         leaveBalanceApiPath = getProperty("hrm.api.leave.balance.path", "/api/leave/balance");
+        leaveRequestsApiPath = getProperty("hrm.api.leave.requests.path", "/api/leave/requests/mine");
         overtimeApiPath = getProperty("hrm.api.overtime.path", "/api/overtime/requests/mine");
 
         microsoftUsername = getProperty("microsoft.username", "phuongnh@gm-group.vn");
@@ -155,6 +157,7 @@ public class AppConfig {
     public String getHolidaysApiPath() { return holidaysApiPath; }
     public String getNotificationsApiPath() { return notificationsApiPath; }
     public String getLeaveBalanceApiPath() { return leaveBalanceApiPath; }
+    public String getLeaveRequestsApiPath() { return leaveRequestsApiPath; }
     public String getOvertimeApiPath() { return overtimeApiPath; }
     public String getMicrosoftUsername() { return microsoftUsername; }
     public String getMicrosoftPassword() { return microsoftPassword; }

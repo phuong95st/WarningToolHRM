@@ -312,39 +312,52 @@ public class TelegramTemplate {
     }
 
     /**
-     * Danh sách đơn nghỉ phép / remote
+     * Danh sách đơn xin nghỉ phép của tôi từ /api/leave/requests/mine
      */
-    public static String leaveRequestsSummary(java.util.List<com.gm.warning.model.HrmNotificationItem> notifications) {
+    public static String leaveRequestsSummary(java.util.List<com.gm.warning.model.LeaveRequestItem> items) {
         StringBuilder sb = new StringBuilder();
         sb.append(SEPARATOR).append("\n");
-        sb.append("📋 <b>DANH SÁCH ĐƠN NGHỈ PHÉP & REMOTE</b>\n\n");
+        sb.append("📋 <b>DANH SÁCH ĐƠN NGHỈ PHÉP</b>\n\n");
 
-        if (notifications == null || notifications.isEmpty()) {
-            sb.append("<blockquote>Không có thông báo đơn nghỉ nào gần đây.</blockquote>");
+        if (items == null || items.isEmpty()) {
+            sb.append("<blockquote>Không có đơn nghỉ phép nào được ghi nhận.</blockquote>");
             return sb.toString();
         }
 
-        // Lọc các thông báo liên quan đến nghỉ phép / remote / đơn
-        java.util.List<com.gm.warning.model.HrmNotificationItem> leaveList = notifications.stream()
-                .filter(n -> {
-                    String t = (n.getTitle() != null ? n.getTitle() : "").toLowerCase();
-                    String c = (n.getContent() != null ? n.getContent() : "").toLowerCase();
-                    return t.contains("đơn") || t.contains("nghỉ") || t.contains("remote")
-                            || c.contains("nghỉ phép") || c.contains("remote") || c.contains("đơn");
-                })
-                .limit(10)
-                .toList();
+        for (com.gm.warning.model.LeaveRequestItem item : items) {
+            String status = item.getStatus() != null ? item.getStatus() : "";
+            String statusBadge = switch (status.toUpperCase()) {
+                case "APPROVED" -> "✅ ĐÃ DUYỆT";
+                case "PENDING" -> "⏳ CHỜ DUYỆT";
+                case "CANCELLED" -> "🚫 ĐÃ HỦY";
+                case "REJECTED" -> "❌ TỪ CHỐI";
+                default -> status;
+            };
 
-        if (leaveList.isEmpty()) {
-            sb.append("<blockquote>Không tìm thấy đơn nghỉ phép hay remote nào.</blockquote>");
-            return sb.toString();
-        }
+            String typeStr = switch (item.getLeaveType() != null ? item.getLeaveType().toUpperCase() : "") {
+                case "FULL_DAY" -> "Cả ngày";
+                case "MORNING" -> "Buổi sáng";
+                case "AFTERNOON" -> "Buổi chiều";
+                default -> item.getLeaveType() != null ? item.getLeaveType() : "";
+            };
 
-        for (com.gm.warning.model.HrmNotificationItem item : leaveList) {
-            String time = formatTime(item.getCreatedAt());
-            sb.append("<blockquote><b>").append(escapeHtml(item.getTitle())).append("</b>\n")
-                    .append(escapeHtml(item.getContent())).append("\n")
-                    .append("<i>🕒 ").append(time).append("</i></blockquote>\n\n");
+            String dateStr = item.getStartDate();
+            if (item.getEndDate() != null && !item.getEndDate().equals(item.getStartDate())) {
+                dateStr += " ➜ " + item.getEndDate();
+            }
+
+            String catLabel = (item.getLeaveCategoryLabel() != null && !item.getLeaveCategoryLabel().isBlank())
+                    ? item.getLeaveCategoryLabel() : "Nghỉ phép";
+
+            sb.append("<blockquote>📅 <b>").append(dateStr).append("</b> (").append(item.getDays()).append(" ngày) [<b>").append(statusBadge).append("</b>]\n")
+                    .append("🏷 Loại: <b>").append(escapeHtml(catLabel)).append("</b> (").append(typeStr).append(")\n");
+            if (item.getReason() != null && !item.getReason().isBlank()) {
+                sb.append("📝 Lý do: <i>").append(escapeHtml(item.getReason())).append("</i>\n");
+            }
+            if (item.getManagerNote() != null && !item.getManagerNote().isBlank()) {
+                sb.append("💬 Phản hồi QL: <i>").append(escapeHtml(item.getManagerNote())).append("</i>\n");
+            }
+            sb.append("</blockquote>\n");
         }
 
         return sb.toString();
@@ -390,7 +403,7 @@ public class TelegramTemplate {
             if (!approverName.isBlank()) {
                 sb.append("👤 Người duyệt: <b>").append(escapeHtml(approverName)).append("</b>\n");
             }
-            sb.append("</blockquote>\n\n");
+            sb.append("</blockquote>\n");
         }
 
         return sb.toString();

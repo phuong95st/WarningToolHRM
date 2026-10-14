@@ -323,4 +323,44 @@ public class HrmApiClient {
         }
         return Collections.emptyList();
     }
+
+    /**
+     * Tải danh sách đơn xin nghỉ phép của tôi từ /api/leave/requests/mine
+     */
+    public synchronized List<LeaveRequestItem> fetchLeaveRequests() {
+        ensureValidToken();
+        String token = tokenCache.getToken();
+        if (token == null || token.isBlank()) return Collections.emptyList();
+
+        String url = config.getHrmUrl() + config.getLeaveRequestsApiPath();
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (httpResponse.statusCode() == 200) {
+                LeaveRequestsResponse res = mapper.readValue(httpResponse.body(), LeaveRequestsResponse.class);
+                if (res != null && res.isSuccess() && res.getData() != null) {
+                    return res.getData();
+                }
+            } else if (httpResponse.statusCode() == 401) {
+                log.warn("[401] Token hết hạn khi gọi API đơn nghỉ. Thử login lại...");
+                String newToken = ssoLoginService.performSsoLogin();
+                if (newToken != null) {
+                    return fetchLeaveRequests();
+                }
+            } else {
+                log.warn("Gọi API đơn nghỉ thất bại HTTP {}: {}", httpResponse.statusCode(), httpResponse.body());
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi gọi API đơn nghỉ: {}", e.getMessage());
+        }
+        return Collections.emptyList();
+    }
 }

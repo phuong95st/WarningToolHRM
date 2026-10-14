@@ -294,8 +294,8 @@ public class TelegramBotService {
     }
 
     private void handleLeaveRequestsCommand() {
-        List<HrmNotificationItem> notifications = hrmApiClient.fetchNotifications();
-        telegramNotifier.sendMessage(TelegramTemplate.leaveRequestsSummary(notifications));
+        List<com.gm.warning.model.LeaveRequestItem> leaveList = hrmApiClient.fetchLeaveRequests();
+        telegramNotifier.sendMessage(TelegramTemplate.leaveRequestsSummary(leaveList));
     }
 
     private void handleOvertimeCommand() {
