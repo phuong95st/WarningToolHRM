@@ -34,6 +34,25 @@ public class TokenCache {
         return token;
     }
 
+    public synchronized String extractEmployeeId() {
+        if (token == null || !token.contains(".")) return null;
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length >= 2) {
+                byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
+                JsonNode json = mapper.readTree(decoded);
+                if (json.has("employeeid")) {
+                    return json.get("employeeid").asText();
+                } else if (json.has("sub")) {
+                    return json.get("sub").asText();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract employeeId from token: {}", e.getMessage());
+        }
+        return null;
+    }
+
     public synchronized boolean isValid(String currentConfigUsername) {
         if (token == null || token.isBlank()) {
             return false;
@@ -62,6 +81,33 @@ public class TokenCache {
 
     public synchronized long getExpiresAtEpochSec() {
         return expiresAtEpochSec;
+    }
+
+    public synchronized String getEmployeeId() {
+        return extractEmployeeId(this.token);
+    }
+
+    public static String extractEmployeeId(String jwt) {
+        try {
+            if (jwt == null || !jwt.contains(".")) {
+                return null;
+            }
+            String[] parts = jwt.split("\\.");
+            if (parts.length < 2) {
+                return null;
+            }
+            byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
+            JsonNode payload = mapper.readTree(decoded);
+            if (payload.has("employeeid")) {
+                return payload.get("employeeid").asText();
+            }
+            if (payload.has("employeeId")) {
+                return payload.get("employeeId").asText();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract employeeId from JWT payload: {}", e.getMessage());
+        }
+        return null;
     }
 
     private long extractExpiry(String jwt) {

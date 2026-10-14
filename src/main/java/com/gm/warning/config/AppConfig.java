@@ -24,6 +24,8 @@ public class AppConfig {
     private String leaveBalanceApiPath;
     private String leaveRequestsApiPath;
     private String overtimeApiPath;
+    private String attendanceSummaryApiPath;
+    private String employeeId;
     private String microsoftUsername;
     private String microsoftPassword;
     private String browserChannel;
@@ -87,6 +89,8 @@ public class AppConfig {
         leaveBalanceApiPath = getProperty("hrm.api.leave.balance.path", "/api/leave/balance");
         leaveRequestsApiPath = getProperty("hrm.api.leave.requests.path", "/api/leave/requests/mine");
         overtimeApiPath = getProperty("hrm.api.overtime.path", "/api/overtime/requests/mine");
+        attendanceSummaryApiPath = getProperty("hrm.api.attendance.summary.path", "/api/attendance/summary/employee");
+        employeeId = getProperty("hrm.employee.id", "");
 
         microsoftUsername = getProperty("microsoft.username", "phuongnh@gm-group.vn");
         microsoftPassword = getProperty("microsoft.password", "");
@@ -159,6 +163,8 @@ public class AppConfig {
     public String getLeaveBalanceApiPath() { return leaveBalanceApiPath; }
     public String getLeaveRequestsApiPath() { return leaveRequestsApiPath; }
     public String getOvertimeApiPath() { return overtimeApiPath; }
+    public String getAttendanceSummaryApiPath() { return attendanceSummaryApiPath; }
+    public String getEmployeeId() { return employeeId; }
     public String getMicrosoftUsername() { return microsoftUsername; }
     public String getMicrosoftPassword() { return microsoftPassword; }
     public String getBrowserChannel() { return browserChannel; }

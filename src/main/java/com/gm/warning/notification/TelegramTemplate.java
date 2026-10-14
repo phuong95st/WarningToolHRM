@@ -232,68 +232,195 @@ public class TelegramTemplate {
      * Bảng chi tiết chấm công trong tháng
      */
     public static String attendanceMonthSummary(int year, int month, java.util.List<com.gm.warning.model.AttendanceRecord> records) {
+        return attendanceMonthSummary(year, month, records, null, null);
+    }
+
+    public static String attendanceMonthSummary(int year, int month,
+                                                java.util.List<com.gm.warning.model.AttendanceRecord> records,
+                                                com.gm.warning.model.AttendanceSummaryData summary) {
+        return attendanceMonthSummary(year, month, records, summary, null);
+    }
+
+    public static String attendanceMonthSummary(int year, int month,
+                                                java.util.List<com.gm.warning.model.AttendanceRecord> records,
+                                                com.gm.warning.model.AttendanceSummaryData summary,
+                                                java.util.List<com.gm.warning.model.HolidayItem> holidays) {
         StringBuilder sb = new StringBuilder();
         sb.append(SEPARATOR).append("\n");
-        sb.append(String.format("📅 <b>BẢNG CHẤM CÔNG THÁNG %02d/%d</b>\n\n", month, year));
+        sb.append(String.format("📅 <b>BẢNG CHẤM CÔNG THÁNG %02d/%d</b>\n", month, year));
 
-        if (records == null || records.isEmpty()) {
+        if (summary != null) {
+            if (summary.getEmployeeName() != null && !summary.getEmployeeName().isBlank()) {
+                sb.append(String.format("👤 <b>Nhân viên:</b> %s", summary.getEmployeeName()));
+                if (summary.getEmployeeId() != null && !summary.getEmployeeId().isBlank()) {
+                    sb.append(String.format(" (MSNV: %s)", summary.getEmployeeId()));
+                }
+                sb.append("\n");
+            }
+            if (summary.getDepartment() != null && !summary.getDepartment().isBlank()) {
+                sb.append(String.format("🏢 <b>Bộ phận:</b> %s\n", summary.getDepartment()));
+            }
+            sb.append("\n");
+
+            sb.append("<blockquote>📊 <b>TỔNG KẾT CÔNG THỰC TẾ:</b>\n")
+              .append(String.format("💼 <b>Tổng công tính lương: %s</b> công\n", formatScore(summary.getActualPaidDays())))
+              .append(String.format("  ├ 🏢 Chấm công tại VP: <b>%s</b> công\n", formatScore(summary.getAttendanceScore())))
+              .append(String.format("  ├ 🏠 Làm việc từ xa (Remote): <b>%s</b> công\n", formatScore(summary.getWorkModeDays())))
+              .append(String.format("  ├ 🏖️ Nghỉ phép năm: <b>%s</b> công\n", formatScore(summary.getAnnualLeaveDays())))
+              .append(String.format("  └ 🇻🇳 Nghỉ lễ có lương: <b>%s</b> công", formatScore(summary.getHolidayDays())))
+              .append("</blockquote>\n\n");
+        } else if (records != null && !records.isEmpty()) {
+            // Thống kê nhanh fallback khi không có API summary
+            long totalFullWork = records.stream().filter(com.gm.warning.model.AttendanceRecord::isFullWork).count();
+            long totalEarly = records.stream().filter(r -> r.isCheckedOut() && !r.isFullWork()).count();
+            long totalWorking = records.stream().filter(r -> r.isCheckedIn() && !r.isCheckedOut()).count();
+
+            sb.append("<blockquote>📊 <b>Tổng kết:</b> ")
+                    .append("Đủ công: <b>").append(totalFullWork).append("</b> ngày | ")
+                    .append("Về sớm/thiếu: <b>").append(totalEarly).append("</b> ngày");
+            if (totalWorking > 0) {
+                sb.append(" | Đang làm: <b>").append(totalWorking).append("</b>");
+            }
+            sb.append("</blockquote>\n\n");
+        } else {
             sb.append("<blockquote>Không tìm thấy dữ liệu chấm công cho tháng này.</blockquote>");
             return sb.toString();
         }
 
-        // Thống kê nhanh
-        long totalFullWork = records.stream().filter(com.gm.warning.model.AttendanceRecord::isFullWork).count();
-        long totalEarly = records.stream().filter(r -> r.isCheckedOut() && !r.isFullWork()).count();
-        long totalWorking = records.stream().filter(r -> r.isCheckedIn() && !r.isCheckedOut()).count();
-
-        sb.append("<blockquote>📊 <b>Tổng kết:</b> ")
-                .append("Đủ công: <b>").append(totalFullWork).append("</b> ngày | ")
-                .append("Về sớm/thiếu: <b>").append(totalEarly).append("</b> ngày");
-        if (totalWorking > 0) {
-            sb.append(" | Đang làm: <b>").append(totalWorking).append("</b>");
-        }
-        sb.append("</blockquote>\n\n");
-
         sb.append("<b>Chi tiết từng ngày:</b>\n");
-        // Sắp xếp theo ngày tăng dần
-        java.util.List<com.gm.warning.model.AttendanceRecord> sorted = new java.util.ArrayList<>(records);
-        sorted.sort(java.util.Comparator.comparing(com.gm.warning.model.AttendanceRecord::getWorkDate));
 
-        for (com.gm.warning.model.AttendanceRecord r : sorted) {
-            String dateStr = r.getWorkDate();
-            String dayOfWeekStr = "";
-            try {
-                java.time.LocalDate ld = java.time.LocalDate.parse(dateStr);
-                int dayOfWeek = ld.getDayOfWeek().getValue();
-                dayOfWeekStr = switch (dayOfWeek) {
-                    case 1 -> "T2";
-                    case 2 -> "T3";
-                    case 3 -> "T4";
-                    case 4 -> "T5";
-                    case 5 -> "T6";
-                    case 6 -> "T7";
-                    default -> "CN";
-                };
-                dateStr = String.format("%02d/%02d (%s)", ld.getDayOfMonth(), ld.getMonthValue(), dayOfWeekStr);
-            } catch (Exception ignored) {}
-
-            String in = r.getCheckIn() != null ? r.getCheckIn() : "--:--";
-            String out = r.getCheckOut() != null ? r.getCheckOut() : "--:--";
-            String status = r.getStatus() != null ? r.getStatus() : "";
-
-            String icon = "•";
-            if (r.isFullWork()) {
-                icon = "✅";
-            } else if (r.isCheckedOut()) {
-                icon = "⚠️";
-            } else if (r.isCheckedIn()) {
-                icon = "⏳";
+        // Map bản ghi chấm công theo ngày trong tháng
+        java.util.Map<Integer, com.gm.warning.model.AttendanceRecord> recordMap = new java.util.HashMap<>();
+        if (records != null) {
+            for (com.gm.warning.model.AttendanceRecord r : records) {
+                if (r.getWorkLocalDate() != null) {
+                    recordMap.put(r.getWorkLocalDate().getDayOfMonth(), r);
+                }
             }
+        }
 
-            sb.append(String.format("%s <b>%s</b>: %s - %s [<i>%s</i>]\n", icon, dateStr, in, out, status));
+        // Map ngày lễ theo ngày chuẩn ISO yyyy-MM-dd
+        java.util.Map<String, com.gm.warning.model.HolidayItem> holidayMap = new java.util.HashMap<>();
+        if (holidays != null) {
+            for (com.gm.warning.model.HolidayItem h : holidays) {
+                if (h.getHolidayDate() != null && !h.isDeleted()) {
+                    holidayMap.put(h.getHolidayDate(), h);
+                }
+            }
+        }
+
+        int daysInMonth = java.time.YearMonth.of(year, month).lengthOfMonth();
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        for (int day = 1; day <= daysInMonth; day++) {
+            java.time.LocalDate date = java.time.LocalDate.of(year, month, day);
+            String dateIso = date.toString();
+            int dow = date.getDayOfWeek().getValue();
+            String dowStr = switch (dow) {
+                case 1 -> "T2";
+                case 2 -> "T3";
+                case 3 -> "T4";
+                case 4 -> "T5";
+                case 5 -> "T6";
+                case 6 -> "T7";
+                default -> "CN";
+            };
+            boolean isWeekend = (dow == 6 || dow == 7);
+            String dateLabel = String.format("%02d/%02d (%s)", day, month, dowStr);
+
+            com.gm.warning.model.AttendanceRecord r = recordMap.get(day);
+            Double dailyScore = summary != null ? summary.getScoreForDay(day) : null;
+            com.gm.warning.model.DailyWorkModeItem workMode = summary != null ? summary.getWorkModeForDay(day) : null;
+            com.gm.warning.model.DailyLeaveItem leave = summary != null ? summary.getLeaveForDay(year, month, day) : null;
+            com.gm.warning.model.HolidayItem holiday = holidayMap.get(dateIso);
+
+            String in = (r != null && r.getCheckIn() != null) ? r.getCheckIn() : "--:--";
+            String out = (r != null && r.getCheckOut() != null) ? r.getCheckOut() : "--:--";
+            boolean hasPunch = (r != null && (r.isCheckedIn() || r.isCheckedOut()));
+
+            // Trường hợp 1: Ngày nghỉ lễ
+            if (holiday != null || (r != null && "NGHỈ LỄ".equalsIgnoreCase(r.getStatus()))) {
+                String holidayName = holiday != null ? holiday.getName() : "Nghỉ lễ";
+                sb.append(String.format("🇻🇳 <b>%s</b>: [<i>%s</i>]\n", dateLabel, holidayName));
+            }
+            // Trường hợp 2: Nghỉ phép năm / Có đơn nghỉ phép
+            else if (leave != null) {
+                String leaveLabel = leave.getLeaveCategoryLabel() != null ? leave.getLeaveCategoryLabel() : "Nghỉ phép";
+                String leaveScoreStr = formatScore(leave.getLeaveScoreValue());
+                if (hasPunch) {
+                    sb.append(String.format("🏖️ <b>%s</b>: %s - %s [<i>%s (%s công)</i>]\n",
+                            dateLabel, in, out, leaveLabel, leaveScoreStr));
+                } else {
+                    sb.append(String.format("🏖️ <b>%s</b>: [<i>%s (%s công)</i>]\n",
+                            dateLabel, leaveLabel, leaveScoreStr));
+                }
+            }
+            // Trường hợp 3: Làm việc từ xa (Remote) / Chế độ làm việc đặc biệt
+            else if (workMode != null) {
+                String wmDesc = workMode.getLabel() != null ? workMode.getLabel() : "Remote";
+                if (workMode.getPeriodLabel() != null && !workMode.getPeriodLabel().isBlank()) {
+                    wmDesc += " " + workMode.getPeriodLabel();
+                }
+                String scorePart = (dailyScore != null)
+                        ? formatScore(dailyScore) + " công"
+                        : "+" + formatScore(workMode.getApprovedScore()) + " công";
+
+                if (hasPunch) {
+                    sb.append(String.format("🏠 <b>%s</b>: %s - %s [<i>%s (+%s) | %s</i>]\n",
+                            dateLabel, in, out, wmDesc, formatScore(workMode.getApprovedScore()), scorePart));
+                } else {
+                    sb.append(String.format("🏠 <b>%s</b>: [<i>%s (%s)</i>]\n",
+                            dateLabel, wmDesc, scorePart));
+                }
+            }
+            // Trường hợp 4: Ngày trong tương lai (chưa tới)
+            else if (date.isAfter(today)) {
+                if (isWeekend) {
+                    sb.append(String.format("☕ <b>%s</b>: [<i>Cuối tuần</i>]\n", dateLabel));
+                } else {
+                    sb.append(String.format("▫️ <b>%s</b>: [<i>Chưa tới</i>]\n", dateLabel));
+                }
+            }
+            // Trường hợp 5: Đủ công tại văn phòng
+            else if ((dailyScore != null && dailyScore >= 1.0) || (r != null && r.isFullWork())) {
+                String scoreSuffix = (dailyScore != null) ? String.format(" (%s công)", formatScore(dailyScore)) : "";
+                sb.append(String.format("✅ <b>%s</b>: %s - %s [<i>ĐỦ CÔNG%s</i>]\n",
+                        dateLabel, in, out, scoreSuffix));
+            }
+            // Trường hợp 6: Đang làm việc trong ngày hôm nay
+            else if (date.equals(today) && r != null && r.isCurrentlyWorking()) {
+                sb.append(String.format("⏳ <b>%s</b>: %s - %s [<i>Đang làm việc</i>]\n",
+                        dateLabel, in, out));
+            }
+            // Trường hợp 7: Có check-in/out nhưng thiếu công / đi muộn / về sớm
+            else if (hasPunch) {
+                String status = (r != null && r.getStatus() != null && !r.getStatus().isBlank())
+                        ? r.getStatus()
+                        : "THIẾU CÔNG";
+                String scoreSuffix = (dailyScore != null) ? String.format(" (%s công)", formatScore(dailyScore)) : "";
+                sb.append(String.format("⚠️ <b>%s</b>: %s - %s [<i>%s%s</i>]\n",
+                        dateLabel, in, out, status, scoreSuffix));
+            }
+            // Trường hợp 8: Cuối tuần không làm việc
+            else if (isWeekend) {
+                sb.append(String.format("☕ <b>%s</b>: [<i>Cuối tuần</i>]\n", dateLabel));
+            }
+            // Trường hợp 9: Ngày thường không có chấm công, không phép, không remote
+            else {
+                sb.append(String.format("❌ <b>%s</b>: [<i>Không chấm công</i>]\n", dateLabel));
+            }
         }
 
         return sb.toString();
+    }
+
+    private static String formatScore(double val) {
+        if (val == (long) val) {
+            return String.format("%d", (long) val);
+        }
+        return String.format(java.util.Locale.US, "%.2f", val)
+                .replaceAll("0+$", "")
+                .replaceAll("\\.$", "");
     }
 
     /**

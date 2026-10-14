@@ -6,6 +6,8 @@ import com.gm.warning.client.HrmApiClient;
 import com.gm.warning.config.AppConfig;
 import com.gm.warning.model.AttendanceRecord;
 import com.gm.warning.model.AttendanceResponse;
+import com.gm.warning.model.AttendanceSummaryData;
+import com.gm.warning.model.HolidayItem;
 import com.gm.warning.model.HrmNotificationItem;
 import com.gm.warning.model.LeaveBalanceData;
 import com.gm.warning.model.OvertimeItem;
@@ -263,8 +265,15 @@ public class TelegramBotService {
         }
 
         AttendanceResponse response = hrmApiClient.fetchAttendance(year, month);
-        if (response != null && response.isSuccess() && response.getData() != null) {
-            telegramNotifier.sendMessage(TelegramTemplate.attendanceMonthSummary(year, month, response.getData()));
+        AttendanceSummaryData summary = hrmApiClient.fetchAttendanceSummary(year, month);
+        List<HolidayItem> holidays = hrmApiClient.fetchHolidays();
+
+        List<AttendanceRecord> records = (response != null && response.isSuccess() && response.getData() != null)
+                ? response.getData()
+                : Collections.emptyList();
+
+        if (summary != null || !records.isEmpty()) {
+            telegramNotifier.sendMessage(TelegramTemplate.attendanceMonthSummary(year, month, records, summary, holidays));
         } else {
             telegramNotifier.sendMessage(String.format("❌ Không lấy được dữ liệu chấm công tháng %02d/%d từ HRM.", month, year));
         }

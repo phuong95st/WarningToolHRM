@@ -363,4 +363,67 @@ public class HrmApiClient {
         }
         return Collections.emptyList();
     }
+
+    /**
+     * Tải dữ liệu tổng hợp chấm công (bao gồm Remote, Nghỉ phép, Ngày lễ, Điểm công thực tế)
+     * từ /api/attendance/summary/employee/{employeeId}?year={year}&month={month}
+     */
+    public AttendanceSummaryData fetchAttendanceSummary(int year, int month) {
+        String empId = config.getEmployeeId();
+        if (empId == null || empId.isBlank()) {
+            empId = tokenCache.getEmployeeId();
+        }
+        return fetchAttendanceSummary(empId, year, month);
+    }
+
+    public synchronized AttendanceSummaryData fetchAttendanceSummary(String employeeId, int year, int month) {
+        ensureValidToken();
+        String token = tokenCache.getToken();
+        if (token == null || token.isBlank()) return null;
+
+        if (employeeId == null || employeeId.isBlank()) {
+            employeeId = tokenCache.getEmployeeId();
+            if (employeeId == null || employeeId.isBlank()) {
+                log.warn("Không xác định được EmployeeId để lấy bảng tổng hợp chấm công.");
+                return null;
+            }
+        }
+
+        String basePath = config.getAttendanceSummaryApiPath();
+        String url = String.format("%s%s/%s?year=%d&month=%d",
+                config.getHrmUrl(),
+                basePath,
+                employeeId,
+                year,
+                month);
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            int statusCode = httpResponse.statusCode();
+
+            if (statusCode == 200) {
+                return mapper.readValue(httpResponse.body(), AttendanceSummaryData.class);
+            } else if (statusCode == 401) {
+                log.warn("[401] Token hết hạn khi gọi Attendance Summary. Thử SSO login lại...");
+                String newToken = ssoLoginService.performSsoLogin();
+                if (newToken != null) {
+                    return fetchAttendanceSummary(employeeId, year, month);
+                }
+            } else {
+                log.warn("Gọi API Attendance Summary thất bại với HTTP {}: {}", statusCode, httpResponse.body());
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi tải Attendance Summary từ HRM: {}", e.getMessage());
+        }
+        return null;
+    }
 }
