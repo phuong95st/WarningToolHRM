@@ -369,4 +369,39 @@ public class AttendanceRuleEngineTest {
         boolean hasNoonAlert = noonAlerts.stream().anyMatch(a -> a.getTitle().contains("nghỉ trưa"));
         assertFalse(hasNoonAlert, "Nếu đã bấm check-out từ trước thì không được nhắc check-out trưa");
     }
+
+    @Test
+    @DisplayName("Sau 19:00 chỉ cảnh báo đúng các mốc thời gian trong cấu hình reminders.evening, không bắn lặp 30 phút")
+    void testEveningRemindersOnlyFireAtConfiguredMilestones() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+        // Checked in at 08:50, checked out early at 16:30 (requires 17:50)
+        AttendanceRecord record = new AttendanceRecord("CA SÁNG", "2026-10-13", "08:50", "16:30");
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(List.of(record));
+
+        // Consume target reminder at 17:51
+        engine.evaluate(response, null, tuesday, LocalTime.of(17, 51));
+
+        // Before 19:00 (18:59) - MUST NOT fire 19:00 reminder early
+        List<AttendanceRuleEngine.RuleAlert> earlyAlerts = engine.evaluate(response, null, tuesday, LocalTime.of(18, 59));
+        boolean has1900Early = earlyAlerts.stream().anyMatch(a -> a.getTitle().contains("19:00"));
+        assertFalse(has1900Early, "18:59 không được bắn sớm nhắc nhở mốc 19:00");
+
+        // At 19:00 - MUST fire configured 19:00 reminder
+        List<AttendanceRuleEngine.RuleAlert> alerts1900 = engine.evaluate(response, null, tuesday, LocalTime.of(19, 0));
+        assertEquals(1, alerts1900.size());
+        assertEquals("Nhắc Check-out (19:00)", alerts1900.get(0).getTitle());
+
+        // At 19:01, 19:15, 19:30, 19:45 - MUST NOT fire any 30-min urgent loop reminders
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(19, 1)).isEmpty());
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(19, 15)).isEmpty());
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(19, 30)).isEmpty(), "19:30 không có trong cấu hình thì không được bắn");
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(19, 45)).isEmpty());
+
+        // At 20:00 - Configured milestone, MUST fire
+        List<AttendanceRuleEngine.RuleAlert> alerts2000 = engine.evaluate(response, null, tuesday, LocalTime.of(20, 0));
+        assertEquals(1, alerts2000.size());
+        assertEquals("Nhắc Check-out (20:00)", alerts2000.get(0).getTitle());
+    }
 }

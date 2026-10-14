@@ -33,7 +33,6 @@ public class AttendanceRuleEngine {
     private final Set<String> sentMorningReminders = new HashSet<>();
     private final Set<String> sentEveningReminders = new HashSet<>();
     private LocalTime lastLateCheckInAlertTime = null;
-    private LocalTime lastLateCheckOutAlertTime = null;
 
     public AttendanceRuleEngine(AppConfig config) {
         this.config = config;
@@ -65,7 +64,6 @@ public class AttendanceRuleEngine {
             sentMorningReminders.clear();
             sentEveningReminders.clear();
             lastLateCheckInAlertTime = null;
-            lastLateCheckOutAlertTime = null;
         }
 
         // 1. Check weekend (Saturday / Sunday)
@@ -259,7 +257,7 @@ public class AttendanceRuleEngine {
         // Between 08:30 and 09:00: Check morning reminders
         for (LocalTime reminderTime : config.getMorningReminders()) {
             String timeKey = reminderTime.format(DateTimeFormatter.ofPattern("HH:mm"));
-            if (now.isAfter(reminderTime.minusMinutes(1)) && now.isBefore(reminderTime.plusMinutes(3))) {
+            if (!now.isBefore(reminderTime) && now.isBefore(reminderTime.plusMinutes(3))) {
                 if (!sentMorningReminders.contains(timeKey)) {
                     sentMorningReminders.add(timeKey);
                     alerts.add(new RuleAlert(
@@ -327,10 +325,10 @@ public class AttendanceRuleEngine {
             ));
         }
 
-        // Check evening reminders
+        // Check evening reminders configured in reminders.evening
         for (LocalTime reminderTime : config.getEveningReminders()) {
             String timeKey = reminderTime.format(DateTimeFormatter.ofPattern("HH:mm"));
-            if (now.isAfter(reminderTime.minusMinutes(1)) && now.isBefore(reminderTime.plusMinutes(3))) {
+            if (!now.isBefore(reminderTime) && now.isBefore(reminderTime.plusMinutes(3))) {
                 if (!sentEveningReminders.contains(timeKey)) {
                     sentEveningReminders.add(timeKey);
                     alerts.add(new RuleAlert(
@@ -339,18 +337,6 @@ public class AttendanceRuleEngine {
                             TelegramTemplate.eveningReminder(timeKey, nowStr, checkInStr)
                     ));
                 }
-            }
-        }
-
-        // Late evening after 19:00: Alert every 30 minutes
-        if (now.isAfter(LocalTime.of(19, 0))) {
-            if (lastLateCheckOutAlertTime == null || now.isAfter(lastLateCheckOutAlertTime.plusMinutes(30))) {
-                lastLateCheckOutAlertTime = now;
-                alerts.add(new RuleAlert(
-                        AlertLevel.URGENT,
-                        "CẢNH BÁO: QUÊN CHECK-OUT?",
-                        TelegramTemplate.lateEveningAlert(nowStr, checkInStr)
-                ));
             }
         }
     }
