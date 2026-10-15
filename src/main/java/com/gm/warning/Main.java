@@ -25,8 +25,16 @@ import java.time.format.DateTimeFormatter;
 
 public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
+    private static java.nio.channels.FileLock appLock;
+    private static java.io.FileOutputStream appLockStream;
 
     public static void main(String[] args) {
+        if (!acquireSingleInstanceLock()) {
+            log.warn("Một tiến trình WarningToolHRM khác đang chạy trên máy. Hủy tiến trình mới để tránh xung đột!");
+            System.err.println("[WARN] An instance of WarningToolHRM is already running. Exiting.");
+            return;
+        }
+
         log.info("==================================================");
         log.info("   Starting HRM Attendance Warning Tool v1.0      ");
         log.info("==================================================");
@@ -137,5 +145,17 @@ public class Main {
         scheduler.start();
 
         log.info("HRM Attendance Warning Tool is up and running in background!");
+    }
+
+    private static boolean acquireSingleInstanceLock() {
+        try {
+            java.io.File lockFile = new java.io.File(System.getProperty("java.io.tmpdir", "."), "hrm_tool.lock");
+            appLockStream = new java.io.FileOutputStream(lockFile);
+            appLock = appLockStream.getChannel().tryLock();
+            return appLock != null;
+        } catch (Exception e) {
+            log.warn("Không thể kiểm tra file lock (hrm_tool.lock): {}", e.getMessage());
+            return true;
+        }
     }
 }
