@@ -7,6 +7,7 @@ import com.gm.warning.engine.AttendanceRuleEngine;
 import com.gm.warning.model.AttendanceRecord;
 import com.gm.warning.model.AttendanceResponse;
 import com.gm.warning.model.HolidayItem;
+import com.gm.warning.model.LeaveRequestItem;
 import com.gm.warning.notification.DesktopToastNotifier;
 import com.gm.warning.notification.NotificationManager;
 import com.gm.warning.notification.TelegramNotifier;
@@ -194,7 +195,7 @@ public class DesktopTrayApp {
                     return;
                 }
 
-                // 2. Kiểm tra ngày nghỉ lễ từ API /api/holidays
+                // 3. Kiểm tra ngày nghỉ lễ từ API /api/holidays
                 HolidayItem holiday = hrmApiClient.getHolidayForDate(today);
                 if (holiday != null) {
                     String msg = "Nghỉ lễ: " + holiday.getName();
@@ -205,7 +206,19 @@ public class DesktopTrayApp {
                     return;
                 }
 
-                // 3. Lấy dữ liệu chấm công từ API
+                // 4. Kiểm tra ngày nghỉ phép đã đăng ký từ API /api/leave/requests/mine
+                LeaveRequestItem todayLeave = hrmApiClient.getLeaveForDate(today);
+                if (todayLeave != null && todayLeave.isFullDay()) {
+                    String cat = todayLeave.getLeaveCategoryLabel() != null ? todayLeave.getLeaveCategoryLabel() : "Nghỉ phép";
+                    String msg = "Nghỉ phép: " + cat;
+                    updateStatusText(msg);
+                    if (manualTrigger) {
+                        desktopNotifier.showInfo("Lịch nghỉ phép", "Hôm nay là ngày nghỉ phép: " + cat + " (Cả ngày). Không áp dụng cảnh báo chấm công.");
+                    }
+                    return;
+                }
+
+                // 5. Lấy dữ liệu chấm công từ API
                 AttendanceResponse response = hrmApiClient.fetchCurrentMonthAttendance();
 
                 if (response != null && response.isSuccess() && response.getData() != null) {
@@ -225,6 +238,12 @@ public class DesktopTrayApp {
                         if (manualTrigger) {
                             desktopNotifier.showInfo("HRM Hôm nay", summary);
                         }
+                    } else if (todayLeave != null) {
+                        String leaveDesc = todayLeave.isMorning() ? "Nghỉ phép ca sáng" : "Nghỉ phép ca chiều";
+                        updateStatusText(leaveDesc);
+                        if (manualTrigger) {
+                            desktopNotifier.showInfo("HRM Hôm nay", leaveDesc);
+                        }
                     } else {
                         updateStatusText("Chưa có chấm công hôm nay");
                         if (manualTrigger) {
@@ -232,8 +251,8 @@ public class DesktopTrayApp {
                         }
                     }
 
-                    // Run evaluation rules with holiday
-                    List<AttendanceRuleEngine.RuleAlert> alerts = ruleEngine.evaluate(response, holiday);
+                    // Run evaluation rules with holiday and registered leave
+                    List<AttendanceRuleEngine.RuleAlert> alerts = ruleEngine.evaluate(response, holiday, todayLeave);
                     for (AttendanceRuleEngine.RuleAlert alert : alerts) {
                         notificationManager.dispatchAlert(alert);
                     }

@@ -4,6 +4,7 @@ import com.gm.warning.config.AppConfig;
 import com.gm.warning.model.AttendanceRecord;
 import com.gm.warning.model.AttendanceResponse;
 import com.gm.warning.model.HolidayItem;
+import com.gm.warning.model.LeaveRequestItem;
 import com.gm.warning.notification.TelegramTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,21 +33,29 @@ public class AttendanceRuleEngine {
     private boolean noonReminderSent = false;
     private final Set<String> sentMorningReminders = new HashSet<>();
     private final Set<String> sentEveningReminders = new HashSet<>();
-    private LocalTime lastLateCheckInAlertTime = null;
+    private boolean lateCheckInAlertSent = false;
 
     public AttendanceRuleEngine(AppConfig config) {
         this.config = config;
     }
 
     public synchronized List<RuleAlert> evaluate(AttendanceResponse response) {
-        return evaluate(response, null);
+        return evaluate(response, null, null, LocalDate.now(), LocalTime.now());
     }
 
     public synchronized List<RuleAlert> evaluate(AttendanceResponse response, HolidayItem todayHoliday) {
-        return evaluate(response, todayHoliday, LocalDate.now(), LocalTime.now());
+        return evaluate(response, todayHoliday, null, LocalDate.now(), LocalTime.now());
+    }
+
+    public synchronized List<RuleAlert> evaluate(AttendanceResponse response, HolidayItem todayHoliday, LeaveRequestItem todayLeave) {
+        return evaluate(response, todayHoliday, todayLeave, LocalDate.now(), LocalTime.now());
     }
 
     public synchronized List<RuleAlert> evaluate(AttendanceResponse response, HolidayItem todayHoliday, LocalDate today, LocalTime now) {
+        return evaluate(response, todayHoliday, null, today, now);
+    }
+
+    public synchronized List<RuleAlert> evaluate(AttendanceResponse response, HolidayItem todayHoliday, LeaveRequestItem todayLeave, LocalDate today, LocalTime now) {
         List<RuleAlert> alerts = new ArrayList<>();
 
         // Reset daily state at new day
@@ -63,7 +72,7 @@ public class AttendanceRuleEngine {
             noonReminderSent = false;
             sentMorningReminders.clear();
             sentEveningReminders.clear();
-            lastLateCheckInAlertTime = null;
+            lateCheckInAlertSent = false;
         }
 
         // 1. Check weekend (Saturday / Sunday)
@@ -83,6 +92,16 @@ public class AttendanceRuleEngine {
             return alerts;
         }
 
+        // 3. Check registered leave (Đơn nghỉ phép cả ngày đã đăng ký trước đó)
+        if (todayLeave != null && todayLeave.isFullDay()) {
+            String cat = todayLeave.getLeaveCategoryLabel() != null ? todayLeave.getLeaveCategoryLabel() : "Nghỉ phép";
+            log.info("Hôm nay [{}] là ngày nghỉ phép đã đăng ký: '{}' (Trạng thái: {}). Bỏ qua cảnh báo chấm công.",
+                    todayStr, cat, todayLeave.getStatus());
+            attendanceLogger.info("Hôm nay [{}]: NGHỈ PHÉP [{}] — Không áp dụng cảnh báo chấm công.",
+                    todayStr, cat);
+            return alerts;
+        }
+
         if (response == null || !response.isSuccess() || response.getData() == null) {
             log.warn("Attendance response is null or unsuccessful. Skipping evaluation.");
             return alerts;
@@ -93,6 +112,16 @@ public class AttendanceRuleEngine {
                 .filter(r -> todayStr.equals(r.getWorkDate()))
                 .findFirst()
                 .orElse(null);
+
+        // Check if attendance record status itself indicates leave
+        if (todayRecord != null && todayRecord.getStatus() != null) {
+            String statusUpper = todayRecord.getStatus().trim().toUpperCase();
+            if (statusUpper.contains("NGHỈ") || statusUpper.contains("PHÉP") || statusUpper.contains("LEAVE")) {
+                attendanceLogger.info("Hôm nay [{}]: Trạng thái chấm công là [{}] — Không áp dụng cảnh báo chấm công.",
+                        todayStr, todayRecord.getStatus());
+                return alerts;
+            }
+        }
 
         // Log daily summary
         if (todayRecord != null) {
@@ -107,7 +136,10 @@ public class AttendanceRuleEngine {
 
         // TRƯỜNG HỢP 1: Chưa có Check-in và cũng chưa có Check-out (Hoặc chưa có bản ghi)
         if (todayRecord == null || (!todayRecord.isCheckedIn() && !todayRecord.isCheckedOut())) {
-            evaluateMorningMissingCheckIn(now, alerts);
+            boolean isMorningLeave = (todayLeave != null && (todayLeave.isFullDay() || todayLeave.isMorning()));
+            if (!isMorningLeave && now.isBefore(LocalTime.of(12, 0))) {
+                evaluateMorningMissingCheckIn(now, alerts);
+            }
         }
         // TRƯỜNG HỢP 2: Sáng KHÔNG Check-in mà lại có Check-out!
         else if (!todayRecord.isCheckedIn() && todayRecord.isCheckedOut()) {
@@ -146,8 +178,11 @@ public class AttendanceRuleEngine {
             // Nhắc Check-out nghỉ trưa (nếu chiều có thể nghỉ không đi làm)
             evaluateNoonCheckOut(now, checkInTime, alerts);
 
-            // Đánh giá các mốc nhắc nhở buổi chiều/tối
-            evaluateEveningCheckOut(now, checkInTime, alerts);
+            // Đánh giá các mốc nhắc nhở buổi chiều/tối (bỏ qua nếu đã đăng ký nghỉ chiều)
+            boolean isAfternoonLeave = (todayLeave != null && todayLeave.isAfternoon());
+            if (!isAfternoonLeave) {
+                evaluateEveningCheckOut(now, checkInTime, alerts);
+            }
         }
         // TRƯỜNG HỢP 4: Đã Check-in và ĐÃ Check-out (Hỗ trợ check-out nhiều lần trong ngày)!
         else if (todayRecord.isCheckedIn() && todayRecord.isCheckedOut()) {
@@ -242,8 +277,11 @@ public class AttendanceRuleEngine {
                     ));
                 }
 
-                // Tiếp tục nhắc nhở các mốc chiều/tối (18:05, 18:30...) để không quên check-out lại
-                evaluateEveningCheckOut(now, checkInTime, alerts);
+                // Tiếp tục nhắc nhở các mốc chiều/tối (18:05, 18:30...) để không quên check-out lại (bỏ qua nếu nghỉ chiều)
+                boolean isAfternoonLeave = (todayLeave != null && todayLeave.isAfternoon());
+                if (!isAfternoonLeave) {
+                    evaluateEveningCheckOut(now, checkInTime, alerts);
+                }
             }
         }
 
@@ -269,17 +307,14 @@ public class AttendanceRuleEngine {
             }
         }
 
-        // After 09:00: RED ALERT
-        if (now.isAfter(config.getLatestStart())) {
-            // Alert every 20 minutes
-            if (lastLateCheckInAlertTime == null || now.isAfter(lastLateCheckInAlertTime.plusMinutes(20))) {
-                lastLateCheckInAlertTime = now;
-                alerts.add(new RuleAlert(
-                        AlertLevel.URGENT,
-                        "CẢNH BÁO: CHƯA CHECK-IN!",
-                        TelegramTemplate.lateCheckInAlert(nowStr, latestStartStr, config.getHrmUrl())
-                ));
-            }
+        // Sau 09:00 (latestStart) và trước 12:00: Chỉ cảnh báo 1 lần duy nhất trong buổi sáng, không lặp lại liên tục gây spam
+        if (!lateCheckInAlertSent && now.isAfter(config.getLatestStart()) && now.isBefore(LocalTime.of(12, 0))) {
+            lateCheckInAlertSent = true;
+            alerts.add(new RuleAlert(
+                    AlertLevel.URGENT,
+                    "CẢNH BÁO: CHƯA CHECK-IN!",
+                    TelegramTemplate.lateCheckInAlert(nowStr, latestStartStr, config.getHrmUrl())
+            ));
         }
     }
 

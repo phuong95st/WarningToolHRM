@@ -4,6 +4,7 @@ import com.gm.warning.config.AppConfig;
 import com.gm.warning.model.AttendanceRecord;
 import com.gm.warning.model.AttendanceResponse;
 import com.gm.warning.model.HolidayItem;
+import com.gm.warning.model.LeaveRequestItem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -106,6 +107,109 @@ public class AttendanceRuleEngineTest {
         assertFalse(alerts.isEmpty());
         assertEquals(AttendanceRuleEngine.AlertLevel.URGENT, alerts.get(0).getLevel());
         assertTrue(alerts.get(0).getMessage().toLowerCase().contains("quá giờ chấm công"));
+    }
+
+    @Test
+    @DisplayName("Chống spam: Sau 09:00 chỉ cảnh báo quá giờ 1 lần duy nhất, không lặp lại liên tục gây spam")
+    void testAntiSpamLateCheckInAlert() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(new ArrayList<>());
+
+        // Lần 1 lúc 09:05: Phát cảnh báo quá giờ
+        List<AttendanceRuleEngine.RuleAlert> first = engine.evaluate(response, null, tuesday, LocalTime.of(9, 5));
+        assertEquals(1, first.size());
+        assertEquals(AttendanceRuleEngine.AlertLevel.URGENT, first.get(0).getLevel());
+
+        // Các lần tiếp theo lúc 09:25, 09:45, 10:00: TUYỆT ĐỐI KHÔNG BẮN LẠI
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(9, 25)).isEmpty(), "09:25 không được lặp lại cảnh báo");
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(9, 45)).isEmpty(), "09:45 không được lặp lại cảnh báo");
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(10, 0)).isEmpty(), "10:00 không được lặp lại cảnh báo");
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(14, 0)).isEmpty(), "Buổi chiều không được cảnh báo thiếu check-in sáng");
+    }
+
+    @Test
+    @DisplayName("Đã đăng ký ngày nghỉ phép cả ngày (FULL_DAY) trước đó -> Không bắn bất kỳ cảnh báo check-in/out nào")
+    void testFullDayLeaveNoAlerts() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(new ArrayList<>()); // Không check-in vì nghỉ phép
+
+        LeaveRequestItem leave = new LeaveRequestItem("2026-10-13", "2026-10-13", "FULL_DAY", "APPROVED");
+        leave.setLeaveCategoryLabel("Nghỉ phép năm");
+
+        // Đánh giá các mốc sáng và chiều
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(8, 45)).isEmpty(), "08:45 không cảnh báo khi nghỉ phép");
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(9, 5)).isEmpty(), "09:05 không cảnh báo khi nghỉ phép");
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(12, 0)).isEmpty(), "12:00 không cảnh báo khi nghỉ phép");
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(18, 5)).isEmpty(), "18:05 không cảnh báo khi nghỉ phép");
+    }
+
+    @Test
+    @DisplayName("Đã đăng ký nghỉ phép ca sáng (MORNING) -> Không bắn cảnh báo nhắc check-in sáng")
+    void testMorningLeaveNoMorningAlerts() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(new ArrayList<>());
+
+        LeaveRequestItem leave = new LeaveRequestItem("2026-10-13", "2026-10-13", "MORNING", "APPROVED");
+        leave.setLeaveCategoryLabel("Nghỉ phép ca sáng");
+
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(8, 45)).isEmpty(), "08:45 nghỉ ca sáng không được cảnh báo");
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(9, 5)).isEmpty(), "09:05 nghỉ ca sáng không được cảnh báo quá giờ");
+    }
+
+    @Test
+    @DisplayName("Đã đăng ký nghỉ phép ca chiều (AFTERNOON) -> Không bắn cảnh báo nhắc check-out tối")
+    void testAfternoonLeaveNoEveningCheckoutAlert() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+
+        // Sáng đi làm check-in 08:44
+        AttendanceRecord record = new AttendanceRecord("CA SÁNG", "2026-10-13", "08:44", null);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(List.of(record));
+
+        LeaveRequestItem leave = new LeaveRequestItem("2026-10-13", "2026-10-13", "AFTERNOON", "APPROVED");
+        leave.setLeaveCategoryLabel("Nghỉ phép ca chiều");
+
+        // Tiêu thụ thông báo xác nhận check-in buổi sáng lúc 09:00
+        engine.evaluate(response, null, leave, tuesday, LocalTime.of(9, 0));
+
+        // Chiều/tối 18:05 và 19:00 không nhắc check-out
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(18, 5)).isEmpty(), "18:05 nghỉ ca chiều không nhắc check-out tối");
+        assertTrue(engine.evaluate(response, null, leave, tuesday, LocalTime.of(19, 0)).isEmpty(), "19:00 nghỉ ca chiều không nhắc check-out tối");
+    }
+
+    @Test
+    @DisplayName("Bản ghi chấm công có trạng thái NGHỈ PHÉP -> Không bắn cảnh báo")
+    void testAttendanceRecordStatusLeaveNoAlerts() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+        AttendanceRecord record = new AttendanceRecord("NGHỈ PHÉP", "2026-10-13", null, null);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(List.of(record));
+
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(8, 45)).isEmpty());
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(9, 5)).isEmpty());
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(18, 5)).isEmpty());
+    }
+
+    @Test
+    @DisplayName("Không đăng ký nghỉ phép và không check-in: Sang buổi chiều không bắn cảnh báo check-in sáng")
+    void testNoMorningCheckInAlertInAfternoonWhenNotCheckedIn() {
+        LocalDate tuesday = LocalDate.of(2026, 10, 13);
+        AttendanceResponse response = new AttendanceResponse();
+        response.setSuccess(true);
+        response.setData(new ArrayList<>());
+
+        // Buổi chiều 14:00 không bắn cảnh báo check-in sáng
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(14, 0)).isEmpty());
+        // Buổi tối 18:00 không bắn cảnh báo check-in sáng
+        assertTrue(engine.evaluate(response, null, tuesday, LocalTime.of(18, 0)).isEmpty());
     }
 
     @Test

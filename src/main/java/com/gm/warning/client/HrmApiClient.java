@@ -32,6 +32,10 @@ public class HrmApiClient {
     private String lastStatusDescription = "Khởi tạo";
     private List<HolidayItem> cachedHolidays = new ArrayList<>();
     private LocalDate lastHolidaysFetchDate = null;
+    private List<LeaveRequestItem> cachedLeaveRequests = new ArrayList<>();
+    private LocalDate lastLeaveRequestsFetchDate = null;
+    private long lastLeaveRequestsFetchTimeMs = 0;
+    private static final long LEAVE_CACHE_TTL_MS = 5 * 60 * 1000L; // 5 phút
 
     public HrmApiClient(AppConfig config, TokenCache tokenCache, SsoLoginService ssoLoginService) {
         this.config = config;
@@ -362,6 +366,60 @@ public class HrmApiClient {
             log.error("Lỗi khi gọi API đơn nghỉ: {}", e.getMessage());
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Lấy danh sách đơn nghỉ phép từ cache (5 phút) hoặc gọi API làm mới nếu quá hạn
+     */
+    public synchronized List<LeaveRequestItem> getCachedOrFetchLeaveRequests() {
+        long now = System.currentTimeMillis();
+        LocalDate today = LocalDate.now();
+        if (cachedLeaveRequests.isEmpty()
+                || lastLeaveRequestsFetchDate == null
+                || !lastLeaveRequestsFetchDate.equals(today)
+                || (now - lastLeaveRequestsFetchTimeMs > LEAVE_CACHE_TTL_MS)) {
+            List<LeaveRequestItem> items = fetchLeaveRequests();
+            if (items != null) {
+                cachedLeaveRequests = items;
+                lastLeaveRequestsFetchDate = today;
+                lastLeaveRequestsFetchTimeMs = now;
+            }
+        }
+        return cachedLeaveRequests;
+    }
+
+    /**
+     * Kiểm tra xem ngày chỉ định có nằm trong đơn nghỉ phép đã đăng ký (APPROVED hoặc PENDING) không.
+     * @return LeaveRequestItem nếu có đơn nghỉ hợp lệ, null nếu không có
+     */
+    public synchronized LeaveRequestItem getLeaveForDate(LocalDate date) {
+        if (date == null) return null;
+        List<LeaveRequestItem> list = getCachedOrFetchLeaveRequests();
+        if (list == null || list.isEmpty()) return null;
+
+        for (LeaveRequestItem item : list) {
+            String status = item.getStatus();
+            if (status != null) {
+                String s = status.trim().toUpperCase();
+                if (s.equals("CANCELLED") || s.equals("REJECTED") || s.equals("ĐÃ HỦY") || s.equals("TỪ CHỐI")) {
+                    continue;
+                }
+            }
+            String startStr = item.getStartDate();
+            String endStr = (item.getEndDate() != null && !item.getEndDate().isBlank()) ? item.getEndDate() : startStr;
+            if (startStr == null || startStr.isBlank()) continue;
+
+            try {
+                LocalDate start = LocalDate.parse(startStr.length() >= 10 ? startStr.substring(0, 10) : startStr);
+                LocalDate end = LocalDate.parse(endStr.length() >= 10 ? endStr.substring(0, 10) : endStr);
+                if (!date.isBefore(start) && !date.isAfter(end)) {
+                    return item;
+                }
+            } catch (Exception e) {
+                log.warn("Lỗi phân tích ngày đơn nghỉ phép: start={}, end={}", startStr, endStr);
+            }
+        }
+        return null;
     }
 
     /**

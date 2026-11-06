@@ -59,6 +59,29 @@ public class LeaveRequestItem {
 
     public LeaveRequestItem() {}
 
+    public LeaveRequestItem(String startDate, String endDate, String leaveType, String status) {
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.leaveType = leaveType;
+        this.status = status;
+        this.days = ("MORNING".equalsIgnoreCase(leaveType) || "AFTERNOON".equalsIgnoreCase(leaveType)) ? 0.5 : 1.0;
+    }
+
+    public boolean isFullDay() {
+        return leaveType == null
+                || "FULL_DAY".equalsIgnoreCase(leaveType)
+                || "CẢ NGÀY".equalsIgnoreCase(leaveType)
+                || days >= 1.0;
+    }
+
+    public boolean isMorning() {
+        return "MORNING".equalsIgnoreCase(leaveType) || "SÁNG".equalsIgnoreCase(leaveType);
+    }
+
+    public boolean isAfternoon() {
+        return "AFTERNOON".equalsIgnoreCase(leaveType) || "CHIỀU".equalsIgnoreCase(leaveType);
+    }
+
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
