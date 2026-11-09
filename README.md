@@ -31,36 +31,55 @@
 * **Cơ chế chống tràn ổ C**: Toàn bộ dữ liệu tạm thời của trình duyệt và Java được cách ly về thư mục `temp/` trên ổ đĩa dự án (ổ D), tuyệt đối không gây lỗi đầy ổ đĩa hệ thống `C:\`.
 
 ### 2. ⏰ Quy Tắc Cảnh Báo Chấm Công Thông Minh (Giờ Linh Hoạt)
-* **Khung giờ sáng linh hoạt (08:30 – 09:00)**:
-  * Nhắc nhở chấm công định kỳ vào các mốc `08:30`, `08:45`, `08:55` nếu hệ thống chưa ghi nhận Check-in.
-  * **Báo động đỏ khẩn cấp** sau `09:00` nếu vẫn chưa bấm chấm công.
-* **Tự động tính giờ về tối thiểu**:
-  * Ngay khi check-in (ví dụ vào lúc `08:44`), tool tự động cộng đủ 8 tiếng làm việc + 1 tiếng nghỉ trưa (`12:00 – 13:00`) = **9 tiếng** (về tối thiểu `17:44`) và gửi thông báo xác nhận.
+
+Hệ thống được thiết kế bám sát thực tế quy chế giờ làm việc linh hoạt của công ty, tự động giám sát và thích ứng theo từng trạng thái:
+
+* **🏖️ Nhận biết miễn trừ cảnh báo thông minh**:
+  * **Cuối tuần**: Tự động tắt toàn bộ cảnh báo vào Thứ Bảy và Chủ Nhật.
+  * **Lịch nghỉ lễ công ty**: Tự động đồng bộ từ API `http://hrm.gm-group.vn/api/holidays` (Quốc khánh, Tết, Teambuilding...), tự động bỏ qua cảnh báo vào ngày lễ.
+  * **Đơn nghỉ phép cá nhân (Đồng bộ từ `/api/leave/requests/mine`)**:
+    * **Nghỉ phép cả ngày**: Tự động tắt toàn bộ cảnh báo chấm công trong ngày.
+    * **Nghỉ phép ca sáng**: Tự động miễn trừ nhắc nhở chấm công sáng.
+    * **Nghỉ phép ca chiều**: Tự động miễn trừ các nhắc nhở Check-out chiều và tối.
+  * **Trạng thái chấm công trên HRM**: Tự động bỏ qua nếu bản ghi ngày đó đã ghi nhận trạng thái `NGHỈ PHÉP` / `LEAVE`.
+
+* **🌅 Khung giờ sáng linh hoạt (08:30 – 09:00)**:
+  * Nhắc nhở chấm công định kỳ vào các mốc cấu hình: **`08:30`**, **`08:45`**, **`08:55`** nếu hệ thống chưa ghi nhận Check-in (chống spam: mỗi mốc chỉ gửi 1 lần).
+  * **🚨 Báo động đỏ khẩn cấp sau `09:00`**: Nếu sau `09:00` mà bạn vẫn chưa bấm Check-in (và không có đơn nghỉ sáng), tool gửi cảnh báo khẩn cấp (chỉ gửi duy nhất 1 lần trong buổi sáng trước `12:00` để tránh làm phiền).
+
+* **✅ Xác nhận Check-in & Tự động tính mốc về tối thiểu (+9 tiếng)**:
+  * Ngay khi bạn vừa bấm Check-in (ví dụ vào lúc `08:44`), tool gửi tin nhắn Telegram xác nhận check-in thành công 1 lần duy nhất.
+  * Tự động cộng span **9 tiếng** (gồm **8 tiếng làm việc** tiêu chuẩn + **1 tiếng nghỉ trưa** cố định `12:00 – 13:00`), tính ra chính xác mốc giờ về tối thiểu (ví dụ vào `08:44` ➔ giờ về tối thiểu là **`17:44`**).
+
 * **🍱 Nhắc nhở Check-out nghỉ trưa (12:00 – 13:00)**:
-  * Khung giờ nghỉ trưa công ty: **12:00 – 13:00**.
-  * Nếu sáng đã Check-in, đến đúng **12:00** tool sẽ gửi thông báo nhắc Check-out 1 lần: đề phòng trường hợp buổi chiều bạn có việc bận hoặc nghỉ phép không đi làm, giúp hệ thống HRM chốt và ghi nhận đủ nửa ngày công ca sáng thay vì bị mất công.
-  * Nếu bạn đã bấm Check-out từ trước đó (ví dụ 11:55 ra về), hệ thống tự động không nhắc nữa.
-  * Cơ chế chống spam: Chỉ gửi duy nhất **1 lần trong ngày** trong suốt khung giờ nghỉ trưa (12:00 – 13:00).
-* **Khung giờ chiều & tối**:
-  * Thông báo ngay khi hoàn thành đủ 8 tiếng công trong ngày.
-  * Nhắc nhở bấm Check-out vào các mốc `17:35`, `18:05`, `18:30`, `19:00`, `20:00`.
-* **⚠️ Cảnh báo Check-out THÔNG MINH khi CHƯA ĐỦ CÔNG / Về sớm (Hỗ trợ Check-out nhiều lần)**:
-  * **Lần 1 chưa đủ công**: Bấm check-out sớm (ví dụ vào 08:50, về lúc 16:30) -> Tool cảnh báo rõ số giờ đã làm (7h40m), giờ tối thiểu yêu cầu (17:50), và số phút còn thiếu (thiếu 80 phút).
-  * **Tự nhắc Check-out lại khi đến mốc đủ giờ**: Nếu bạn ở lại văn phòng làm tiếp, đúng lúc chạm mốc 8 tiếng (17:50), tool sẽ gửi thông báo: *"Đã đến mốc đủ công, hãy bấm Check-out lại trên HRM ngay!"*.
-  * **Lần 2, 3 nếu vẫn chưa đủ công**: Nếu bạn bấm lại (ví dụ 17:15) mà vẫn chưa đủ giờ, tool tiếp tục cảnh báo chính xác số phút còn thiếu cho lần bấm mới.
-  * **Lần chốt ĐỦ CÔNG (Lần 2, 3 hoặc 4)**: Ngay khi bạn bấm Check-out lại và đạt `ĐỦ CÔNG` (ví dụ 18:00), tool lập tức gửi thông báo chúc mừng: *"🎉 Xác nhận Check-out lại thành công & Đã đủ công!"*, đồng thời tự động dừng mọi nhắc nhở chiều/tối!
-  * **Cơ chế chống spam tuyệt đối**: Nếu bạn không bấm lại (giờ check-out giữ nguyên), tool tuyệt đối không gửi lại thông báo trùng lặp.
-* **🚨 Cảnh báo Sáng KHÔNG Check-in mà chiều lại có Check-out**:
-  * Nếu sáng quên chấm công vào nhưng chiều lại bấm ra, tool phát hiện ngay trạng thái bất thường và bắn thông báo khẩn cấp hướng dẫn vào HRM làm đơn Giải trình quên check-in để không bị trừ công.
-* **🚨 Cảnh báo đi về mà quên Check-out (Shutdown Hook)**:
-  * Khi bạn **tắt máy tính (Shutdown)**, khởi động lại (Restart), hoặc thoát ứng dụng vào ngày làm việc mà chưa bấm Check-out (hoặc trước đó check-out chưa đủ công), tool lập tức bắn thông báo khẩn cấp lên Telegram!
+  * Nếu buổi sáng đã Check-in, đến đúng **`12:00`** tool gửi thông báo nhắc Check-out nghỉ trưa: đề phòng trường hợp bạn có việc bận đột xuất hoặc nghỉ phép ca chiều không đi làm, giúp hệ thống HRM chốt và ghi nhận đủ nửa ngày công ca sáng thay vì bị mất công.
+  * Nếu bạn đã chủ động bấm Check-out từ trước đó (ví dụ 11:55 ra về), hệ thống tự động không gửi nhắc nhở nữa.
+  * Cơ chế chống spam: Chỉ gửi duy nhất **1 lần trong ngày** trong suốt khung giờ nghỉ trưa (`12:00 – 13:00`).
 
-### 3. 🏖️ Tự Động Nhận Biết Cuối Tuần & Lịch Nghỉ Lễ Công Ty
-* Tự động nhận biết Thứ Bảy và Chủ Nhật để tắt toàn bộ cảnh báo chấm công.
-* Tự động đồng bộ lịch nghỉ lễ (Du lịch Teambuilding, Quốc Khánh, Tết...) từ API `http://hrm.gm-group.vn/api/holidays`.
-* Tuyệt đối không gửi cảnh báo sai vào các ngày nghỉ lễ.
+* **🎉 Thông báo đạt mốc hoàn thành đủ 8 tiếng công**:
+  * Khi đồng hồ vượt qua mốc giờ về tối thiểu (`checkIn + 9h`), tool tự động gửi thông báo chúc mừng: *"Đã hoàn thành đủ 8 tiếng làm việc hôm nay"*, nhắc nhở bạn có thể chuẩn bị Check-out khi kết thúc ca làm.
 
-### 4. 🔔 Giám Sát Realtime & Bắn Thông Báo Duyệt Đơn (Nghỉ Phép, Remote, OT)
+* **🌇 Nhắc nhở Check-out chiều & tối**:
+  * Nếu đang làm việc mà chưa Check-out, tool sẽ gửi thông báo nhắc nhở vào các mốc cấu hình: **`17:35`**, **`18:05`**, **`18:30`**, **`19:00`**, **`20:00`** (mỗi mốc chỉ nhắc 1 lần duy nhất).
+
+* **🔄 Xử lý Đa Check-out & Cảnh báo về sớm / Chưa đủ công**:
+  * **Trường hợp 1 - Check-out sớm (Chưa đủ công)**:
+    * Bấm check-out sớm (ví dụ vào `08:50`, bấm về lúc `16:30`): Tool lập tức cảnh báo chi tiết số giờ đã làm (7h40m), mốc về yêu cầu (`17:50`), và **số phút còn thiếu** (thiếu 80 phút).
+    * Hỗ trợ đếm số lần bấm: Cảnh báo rõ ràng cho Lần 1, Lần 2, Lần 3...
+    * **Tự nhắc Check-out lại khi đến giờ đủ công**: Nếu bạn ở lại văn phòng làm tiếp, đúng lúc chạm mốc 8 tiếng (`17:50`), tool sẽ tự động gửi thông báo: *"Đã đến mốc đủ công, hãy bấm Check-out lại trên HRM ngay!"*.
+    * Tiếp tục nhắc nhở các mốc chiều/tối tiếp theo để đảm bảo bạn không quên bấm lại trước khi ra về.
+  * **Trường hợp 2 - Check-out ĐỦ CÔNG**:
+    * Ngay khi bạn bấm Check-out lại và đạt `ĐỦ CÔNG` (ví dụ `18:00`), tool gửi thông báo chúc mừng: *"🎉 Check-out thành công (Đủ công)"* kèm tổng thời gian làm việc thực tế trong ngày, đồng thời **tự động dừng mọi nhắc nhở chiều/tối sau đó**.
+  * **Chống spam**: Nếu bạn không bấm lại (thời gian Check-out trên HRM giữ nguyên), tool tuyệt đối không gửi lại thông báo trùng lặp.
+
+* **🚨 Cảnh báo bất thường: Sáng KHÔNG Check-in mà chiều lại có Check-out**:
+  * Nếu sáng quên chấm công vào nhưng chiều lại có bản ghi ra, tool phát hiện trạng thái bất thường và bắn báo động đỏ khẩn cấp, hướng dẫn bạn vào HRM làm đơn Giải trình quên check-in ngay để không bị trừ công.
+
+* **🛡️ Cơ chế Chống Spam Đa Tầng**:
+  * Trạng thái gửi tin được lưu trữ và tự động reset hoàn toàn vào đầu ngày mới (`00:00`).
+  * Mọi thông báo theo mốc giờ hoặc theo sự kiện đều có cờ đánh dấu, đảm bảo không bao giờ gửi tin nhắn rác hoặc trùng lặp lên điện thoại của bạn.
+
+### 3. 🔔 Giám Sát Realtime & Bắn Thông Báo Duyệt Đơn (Nghỉ Phép, Remote, OT)
 * Tự động gọi API `http://hrm.gm-group.vn/api/notifications/mine` mỗi 2 phút.
 * Bắn thông báo tức thì lên Telegram khi có kết quả duyệt:
   * ✅ **Đơn nghỉ phép năm** đã được duyệt.
@@ -69,7 +88,7 @@
   * ✅ **Thông báo lịch nghỉ lễ mới**.
 * Có cơ chế lưu mốc (`notification_state.json`) để **chống spam**, chỉ gửi các thông báo mới phát sinh.
 
-### 5. 🤖 Tra Cứu Dữ Liệu Tương Tác Qua Telegram Bot (Bot Commands)
+### 4. 🤖 Tra Cứu Dữ Liệu Tương Tác Qua Telegram Bot (Bot Commands)
 Bạn có thể nhắn tin trực tiếp cho Bot trên Telegram để tra cứu dữ liệu chấm công và nhân sự cá nhân bất cứ lúc nào:
 * 📅 **`/chamcong` [tháng/năm]**: Xem chi tiết danh sách từng ngày chấm công trong tháng chỉ định (mặc định tháng hiện tại), thống kê số ngày đủ công, về sớm, giờ vào, giờ ra của từng ngày.
   * *Ví dụ*: `/chamcong` hoặc `/chamcong 09/2026`
@@ -80,13 +99,13 @@ Bạn có thể nhắn tin trực tiếp cho Bot trên Telegram để tra cứu 
 * ❓ **`/help`**: Xem menu hướng dẫn sử dụng bot.
 * *Hỗ trợ menu gợi ý lệnh nhanh (Menu Button)*: Khi mở chat với bot, Telegram sẽ hiển thị sẵn danh sách lệnh để bạn bấm chọn trực tiếp không cần gõ.
 
-### 6. 📱 Template Thông Báo Telegram Tối Ưu Cho Mobile
+### 5. 📱 Template Thông Báo Telegram Tối Ưu Cho Mobile
 * Mỗi thông báo có đường viền phân cách `━━━━━━━━━━━━━━━━` (16 ký tự) trên đầu để phân biệt rõ ràng khi nhận nhiều tin nhắn liên tiếp.
 * **Tiêu đề IN HOA ngắn gọn ($\le 24$ ký tự)**: Luôn nằm gọn trên 1 dòng duy nhất trên điện thoại, tuyệt đối không bị rớt lẻ loi một chữ xuống dòng tiếp theo.
 * **Bố cục đối xứng**: Khoảng cách đều 1 dòng trống phía trên và phía dưới khối thông tin, mang lại trải nghiệm xem thoáng mắt.
 * **In đậm nổi bật thông tin cốt lõi**: Mốc giờ ra yêu cầu (`17:50`), các hành động quan trọng (`Check-in ngay`, `Check-out ngay`, `ĐỦ CÔNG`) được làm nổi bật để dễ nắm bắt ngay khi nhìn lướt qua.
 
-### 7. 📂 Quản Lý Log Tự Động & Retention 30 Ngày
+### 6. 📂 Quản Lý Log Tự Động & Retention 30 Ngày
 * Tự động ghi log chi tiết vào `logs/hrm-tool-YYYY-MM-DD.log`.
 * Tự động ghi tóm tắt công ngày vào `logs/attendance-summary-YYYY-MM-DD.log`.
 * Tự động quét và xoá các file log cũ hơn **30 ngày (1 tháng)** để giải phóng ổ cứng.
