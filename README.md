@@ -21,7 +21,10 @@
 ## 🌟 TÍNH NĂNG CỐT LÕI
 
 ### 1. 🔑 Tự Động Đăng Nhập SSO Azure AD Ngầm (Playwright)
-* Sử dụng thư viện **Microsoft Playwright 1.49** kết hợp trình duyệt Microsoft Edge có sẵn trên máy tính để đăng nhập ngầm không gián đoạn (tương thích hoàn hảo với phiên bản Edge 130+ mới nhất).
+* Sử dụng thư viện **Microsoft Playwright 1.49** để tự động đăng nhập ngầm không gián đoạn:
+  * Mặc định sử dụng **Chromium chuẩn** nhẹ và ổn định, hoặc linh hoạt tùy chọn Microsoft Edge / Google Chrome.
+  * Tích hợp sẵn cơ chế **chống ép HTTPS ngầm (Auto-HTTPS bypass)** giúp truy cập trơn tru vào máy chủ nội bộ HRM chạy HTTP không mã hóa (tránh lỗi `ERR_BLOCKED_BY_CLIENT`).
+  * Cơ chế bắt Bearer JWT token **phi đồng bộ in-memory** an toàn, triệt tiêu hoàn toàn nguy cơ nghẽn đường ống IPC (Deadlock) trong quá trình xác thực đa bước của Microsoft.
 * Tự động nhận diện nút SSO **"GM Account"** trên hệ thống xác thực Keycloak của công ty để chuyển hướng đăng nhập tài khoản Microsoft tổ chức.
 * Tự động lấy và gia hạn Bearer Token JWT khi token hết hạn hoặc máy chủ trả về `401 Unauthorized`.
 * Tự động lưu cache phiên vào thư mục `playwright_profile` để đăng nhập siêu tốc ở các lần tiếp theo.
@@ -116,25 +119,34 @@ hrm.api.notifications.path=/api/notifications/mine
 microsoft.username=your_email@gm-group.vn
 microsoft.password=your_password_here
 
-# 3. Cấu hình nhận cảnh báo qua Telegram Bot
+# 3. Trình duyệt tự động hóa (Playwright)
+# Để trống để dùng Chromium chuẩn (khuyên dùng nhất), hoặc điền 'msedge' / 'chrome'
+browser.channel=
+browser.headless=true
+browser.user.data.dir=./playwright_profile
+
+# 4. Cấu hình nhận cảnh báo qua Telegram Bot
 telegram.enabled=true
 telegram.bot.token=DÁN_BOT_TOKEN_VÀO_ĐÂY
 telegram.chat.id=DÁN_CHAT_ID_VÀO_ĐÂY
 
-# 4. Khung giờ làm việc linh hoạt
+# 5. Khung giờ làm việc linh hoạt
 work.flexible.earliest.start=08:30
 work.flexible.latest.start=09:00
 work.required.span.hours=9
 
-# 5. Các mốc giờ nhắc nhở sáng, trưa và chiều
+# 6. Các mốc giờ nhắc nhở sáng, trưa và chiều
 reminders.morning=08:30,08:45,08:55
 reminders.noon=12:00
 reminders.evening=17:35,18:05,18:30,19:00,20:00
 
-# 6. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
+# 7. Chu kỳ kiểm tra định kỳ (phút) & Thời gian lưu log (ngày)
 check.interval.minutes=1
 log.retention.days=30
 ```
+
+> [!TIP]
+> **Bảo mật cấu hình cá nhân**: Bạn có thể tạo file `config.properties.local` tại thư mục gốc để điền tài khoản, mật khẩu và token riêng của mình. Tool sẽ tự động ưu tiên nạp các giá trị từ file này, và file `.local` đã được thiết lập tự động bỏ qua khỏi Git (`.gitignore`) để chống lộ thông tin.
 
 ### 📱 Các bước lấy Bot Token & Chat ID Telegram:
 1. Mở Telegram, tìm kiếm bot **`@BotFather`** -> Gõ `/newbot` -> Đặt tên bot -> Nhận **Bot Token** (dạng `123456789:ABCdefGhIJKlmNo...`).
@@ -199,10 +211,13 @@ Tool được thiết kế hoàn toàn linh hoạt để chuyển giao cho nhân
 
 | Triệu chứng | Nguyên nhân | Cách khắc phục |
 | :--- | :--- | :--- |
+| **Lỗi `net::ERR_BLOCKED_BY_CLIENT at http://hrm.gm-group.vn/`** | Trình duyệt Microsoft Edge kích hoạt cơ chế Automatic HTTPS chuyển đổi port 80 (HTTP) sang port 443 (HTTPS) và chặn lại | Để trống `browser.channel=` trong file cấu hình để chuyển sang dùng Chromium mặc định của Playwright, hoặc cập nhật bản build mới nhất đã tích hợp cờ tắt Auto-HTTPS. |
+| **Gửi lệnh Telegram (`/chamcong`) nhưng bot không phản hồi** | Luồng xử lý đang bị chờ khóa (lock) do tiến trình SSO login trước đó gặp sự cố hoặc đang chờ xác thực | Chạy `stop.bat` để tắt toàn bộ tiến trình cũ, khởi động lại tool. Phiên bản mới đã xử lý triệt để nguy cơ nghẽn luồng IPC giữa Playwright và Bot. |
+| **Lỗi xung đột file lock (`ProcessSingleton Lock / Lock file error 32`)** | Vô tình nhấp mở nhiều lần làm 2 tiến trình `javaw` cùng chạy nền | Chạy file `stop.bat` để dừng toàn bộ các phiên bản đang chạy ngầm, sau đó mở lại 1 lần duy nhất bằng `run-background.vbs`. |
 | **System Tray báo: "Mất kết nối Internet hoặc lỗi DNS"** | Máy tính đang mất mạng hoặc DNS không phân giải được `hrm.gm-group.vn` | Kiểm tra lại dây mạng/Wifi công ty. Tool sẽ tự động kết nối lại khi có mạng. |
 | **System Tray báo: "Máy chủ HRM bảo trì (HTTP 502/503)"** | Server nội bộ của công ty đang restart hoặc bảo trì | Không cần làm gì, tool ghi nhận log và sẽ thử lại mỗi 2 phút cho đến khi server phục hồi. |
-| **Báo lỗi xác thực Microsoft SSO** | Đổi mật khẩu Microsoft nhưng chưa cập nhật vào tool | Mở file `config.properties`, cập nhật lại mật khẩu mới tại dòng `microsoft.password`. |
-| **Microsoft yêu cầu 2FA / Authenticator** | Tài khoản bật xác thực 2 bước trên thiết bị lạ | Chuột phải vào biểu tượng khay hệ thống -> Chọn "Đăng nhập lại SSO", hoặc mở file `config.properties` đổi `browser.headless=false` để trình duyệt hiện lên cho bạn bấm duyệt trên điện thoại 1 lần. |
+| **Báo lỗi xác thực Microsoft SSO** | Đổi mật khẩu Microsoft nhưng chưa cập nhật vào tool | Mở file `config.properties` (hoặc `config.properties.local`), cập nhật lại mật khẩu mới tại dòng `microsoft.password`. |
+| **Microsoft yêu cầu 2FA / Authenticator** | Tài khoản bật xác thực 2 bước trên thiết bị lạ | Chuột phải vào biểu tượng khay hệ thống -> Chọn "Đăng nhập lại SSO", hoặc mở file cấu hình đổi `browser.headless=false` để trình duyệt hiện lên cho bạn bấm duyệt trên điện thoại 1 lần. |
 | **Lỗi Playwright / Tràn ổ C (Failed to create driver)** | Ổ C bị đầy hoặc thiếu dung lượng khi giải nén driver | Tool đã tự động cách ly toàn bộ thư mục tạm về thư mục `temp/` trên ổ D và bật cờ `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`. Đảm bảo ổ đĩa cài đặt còn trống tối thiểu 500MB. |
 | **Không nhận được tin nhắn Telegram** | Chưa bấm Start bot hoặc điền sai Chat ID | Kiểm tra lại `telegram.bot.token` và `telegram.chat.id`. Mở bot trên Telegram bấm `/start` một lần. |
 
@@ -264,6 +279,12 @@ WarningToolHRM/
 ---
 
 ## 📝 NHẬT KÝ PHIÊN BẢN (CHANGELOG)
+
+### Phiên Bản v1.0.1 (Maintenance Update — 09/11/2026)
+* 🛡️ **Khắc phục lỗi `net::ERR_BLOCKED_BY_CLIENT`**: Bổ sung các cờ tắt tính năng Automatic HTTPS (`--disable-features=msEdgeAutomaticHttps,HttpsUpgrades,msSmartScreenProtection`) khi truy cập web HRM nội bộ chạy HTTP port 80.
+* ⚡ **Khắc phục lỗi nghẽn luồng IPC Playwright (Deadlock)**: Chuyển đổi phương thức trích xuất Bearer token từ `request.headerValue()` sang `request.headers()` in-memory an toàn, ngăn chặn tình trạng treo luồng và đảm bảo Telegram Bot luôn phản hồi tức thì các lệnh tra cứu (`/chamcong`, `/phep`, `/donnghi`, `/ot`).
+* 🌐 **Hỗ trợ Chromium chuẩn của Playwright**: Mặc định để trống `browser.channel=` giúp đăng nhập SSO ổn định tuyệt đối và độc lập với cấu hình trình duyệt cá nhân của Windows.
+* 📑 **Bảo mật file cấu hình cục bộ (`config.properties.local`)**: Tự động ưu tiên nạp cấu hình tài khoản cá nhân độc lập và loại trừ hoàn toàn khỏi Git tracker.
 
 ### Phiên Bản v1.0.0 (Official Release — 13/10/2026)
 * 🚀 **Core**: Tự động đăng nhập ngầm qua Playwright (Microsoft Edge), tự động lấy và gia hạn Bearer Token JWT.
