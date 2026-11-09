@@ -53,7 +53,12 @@ public class SsoLoginService {
 
         try (Playwright playwright = Playwright.create(createOptions)) {
             BrowserType.LaunchPersistentContextOptions options = new BrowserType.LaunchPersistentContextOptions()
-                    .setHeadless(config.isBrowserHeadless());
+                    .setHeadless(config.isBrowserHeadless())
+                    .setArgs(java.util.List.of(
+                            "--disable-features=msEdgeAutomaticHttps,HttpsUpgrades,msSmartScreenProtection",
+                            "--ignore-certificate-errors",
+                            "--no-sandbox"
+                    ));
 
             if (config.getBrowserChannel() != null && !config.getBrowserChannel().isBlank()) {
                 options.setChannel(config.getBrowserChannel());
@@ -84,15 +89,24 @@ public class SsoLoginService {
 
             context.setDefaultTimeout(30000);
 
-            // Intercept outgoing HTTP requests to capture Authorization Bearer header
+            // Intercept outgoing HTTP requests to capture Authorization Bearer header without blocking IPC
             context.onRequest(request -> {
-                String authHeader = request.headerValue("authorization");
-                if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
-                    String token = authHeader.substring(7).trim();
-                    if (isLikelyJwtAccessToken(token)) {
-                        capturedToken.set(token);
-                        log.info("Chặn bắt thành công Bearer token từ request: {}", request.url());
+                try {
+                    Map<String, String> headers = request.headers();
+                    if (headers != null) {
+                        String authHeader = headers.get("authorization");
+                        if (authHeader == null) {
+                            authHeader = headers.get("Authorization");
+                        }
+                        if (authHeader != null && authHeader.toLowerCase().startsWith("bearer ")) {
+                            String token = authHeader.substring(7).trim();
+                            if (isLikelyJwtAccessToken(token)) {
+                                capturedToken.set(token);
+                                log.info("Chặn bắt thành công Bearer token từ request: {}", request.url());
+                            }
+                        }
                     }
+                } catch (Exception ignored) {
                 }
             });
 
@@ -114,7 +128,7 @@ public class SsoLoginService {
                 }
             });
 
-            Page page = context.newPage();
+            Page page = context.pages().isEmpty() ? context.newPage() : context.pages().get(0);
             log.info("Đang truy cập trang web HRM: {}", config.getHrmUrl());
             try {
                 page.navigate(config.getHrmUrl());
