@@ -1,5 +1,6 @@
 package com.gm.warning.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gm.warning.config.AppConfig;
 import com.gm.warning.model.*;
@@ -366,6 +367,84 @@ public class HrmApiClient {
             log.error("Lỗi khi gọi API đơn nghỉ: {}", e.getMessage());
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Tạo đơn xin nghỉ phép mới qua POST /api/leave/request
+     */
+    public synchronized CreateLeaveResult createLeaveRequest(String startDate, String endDate, String leaveType, String leaveCategory, String reason) {
+        ensureValidToken();
+        String token = tokenCache.getToken();
+        if (token == null || token.isBlank()) {
+            return new CreateLeaveResult(false, "Không có token hợp lệ để gửi yêu cầu. Vui lòng thử lại sau.", 401);
+        }
+
+        String url = config.getHrmUrl() + config.getCreateLeaveApiPath();
+        try {
+            java.util.Map<String, String> payload = new java.util.LinkedHashMap<>();
+            payload.put("startDate", startDate);
+            payload.put("endDate", (endDate != null && !endDate.isBlank()) ? endDate : startDate);
+            payload.put("leaveType", (leaveType != null && !leaveType.isBlank()) ? leaveType : "FULL_DAY");
+            payload.put("leaveCategory", (leaveCategory != null && !leaveCategory.isBlank()) ? leaveCategory : "ANNUAL");
+            payload.put("reason", (reason != null && !reason.isBlank()) ? reason : "Việc cá nhân");
+
+            String jsonBody = mapper.writeValueAsString(payload);
+            log.info("Gửi yêu cầu tạo đơn nghỉ phép tới {}: {}", url, jsonBody);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Content-Type", "application/json")
+                    .header("Origin", config.getHrmUrl())
+                    .header("Referer", config.getHrmUrl() + "/leave?view=new-request")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            int code = httpResponse.statusCode();
+            String responseBody = httpResponse.body();
+            log.info("Phản hồi tạo đơn nghỉ phép: HTTP {} - {}", code, responseBody);
+
+            if (code == 200 || code == 201) {
+                // Xoá cache đơn nghỉ để lần gọi tiếp theo tải mới
+                cachedLeaveRequests.clear();
+                lastLeaveRequestsFetchDate = null;
+
+                String msg = "Tạo đơn nghỉ phép thành công!";
+                try {
+                    JsonNode node = mapper.readTree(responseBody);
+                    if (node.has("message") && !node.get("message").asText().isBlank()) {
+                        msg = node.get("message").asText();
+                    }
+                } catch (Exception ignored) {}
+
+                return new CreateLeaveResult(true, msg, code);
+            } else if (code == 401) {
+                log.warn("[401] Token hết hạn khi tạo đơn nghỉ phép. Kích hoạt SSO đăng nhập lại...");
+                String newToken = ssoLoginService.performSsoLogin();
+                if (newToken != null) {
+                    return createLeaveRequest(startDate, endDate, leaveType, leaveCategory, reason);
+                }
+                return new CreateLeaveResult(false, "Xác thực thất bại (Token hết hạn không thể gia hạn)", 401);
+            } else {
+                String errMsg = "Tạo đơn thất bại (HTTP " + code + ")";
+                try {
+                    JsonNode node = mapper.readTree(responseBody);
+                    if (node.has("message") && !node.get("message").asText().isBlank()) {
+                        errMsg = node.get("message").asText();
+                    } else if (node.has("error") && !node.get("error").asText().isBlank()) {
+                        errMsg = node.get("error").asText();
+                    }
+                } catch (Exception ignored) {}
+                return new CreateLeaveResult(false, errMsg, code);
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi yêu cầu tạo đơn nghỉ phép: {}", e.getMessage(), e);
+            return new CreateLeaveResult(false, "Lỗi kết nối tới hệ thống HRM: " + e.getMessage(), 500);
+        }
     }
 
     /**

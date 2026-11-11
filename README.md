@@ -95,6 +95,12 @@ Bạn có thể nhắn tin trực tiếp cho Bot trên Telegram để tra cứu 
 * 🏖 **`/phep` [năm]**: Xem tổng số ngày phép năm, số ngày phép đã sử dụng và số ngày phép còn lại thông qua API `/api/leave/balance`.
   * *Ví dụ*: `/phep` hoặc `/phep 2026`
 * 📋 **`/donnghi`**: Xem chi tiết danh sách các đơn xin nghỉ phép, nghỉ Remote và trạng thái duyệt gần đây.
+* 📝 **`/taodon` [ngày] [buổi] [lý do]**: Tạo đơn xin nghỉ phép mới gửi trực tiếp lên hệ thống HRM:
+  * *Nghỉ 1 ngày*: <code>/taodon 17/11</code> hoặc <code>/taodon 17/11 Bận việc gia đình</code>
+  * *Nghỉ nửa ngày (sáng/chiều)*: <code>/taodon 17/11 sáng Khám bệnh</code>, <code>/taodon 17/11 chiều Đón con</code>
+  * *Nghỉ dải ngày*: <code>/taodon 17/11 19/11 Về quê ăn cưới</code> hoặc <code>/taodon 17/11-19/11 Đi du lịch</code>
+  * *Từ khóa tự nhiên*: <code>/taodon mai Bận việc</code>, <code>/taodon hôm nay chiều Có việc gấp</code>
+  * Gõ <code>/taodon help</code> để xem hướng dẫn cú pháp chi tiết.
 * ⏰ **`/ot`**: Xem chi tiết danh sách các đơn đăng ký làm thêm giờ (OT), số giờ được duyệt, lý do, dự án và người phê duyệt thông qua API `/api/overtime/requests/mine`.
 * ❓ **`/help`**: Xem menu hướng dẫn sử dụng bot.
 * *Hỗ trợ menu gợi ý lệnh nhanh (Menu Button)*: Khi mở chat với bot, Telegram sẽ hiển thị sẵn danh sách lệnh để bạn bấm chọn trực tiếp không cần gõ.
@@ -298,6 +304,13 @@ WarningToolHRM/
 ---
 
 ## 📝 NHẬT KÝ PHIÊN BẢN (CHANGELOG)
+
+### Phiên Bản v1.0.2 (Feature Update — 11/11/2026)
+* 📝 **Tích hợp tạo đơn xin nghỉ phép qua Telegram (`/taodon`)**:
+  * Tích hợp gọi trực tiếp API `POST /api/leave/request` từ hệ thống HRM.
+  * Hỗ trợ cú pháp thông minh và linh hoạt: nghỉ cả ngày, ca sáng (`MORNING`), ca chiều (`AFTERNOON`), dải ngày liên tiếp, từ khóa tự nhiên (`mai`, `hôm nay`).
+  * Tự động làm mới cache đơn nghỉ phép ngay sau khi gửi thành công.
+  * Phản hồi trạng thái chi tiết (PENDING, thông báo duyệt) ngay trên giao diện chat Telegram.
 
 ### Phiên Bản v1.0.1 (Maintenance Update — 09/11/2026)
 * 🛡️ **Khắc phục lỗi `net::ERR_BLOCKED_BY_CLIENT`**: Bổ sung các cờ tắt tính năng Automatic HTTPS (`--disable-features=msEdgeAutomaticHttps,HttpsUpgrades,msSmartScreenProtection`) khi truy cập web HRM nội bộ chạy HTTP port 80.

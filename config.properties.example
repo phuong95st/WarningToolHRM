@@ -7,6 +7,7 @@ hrm.url=http://hrm.gm-group.vn
 hrm.api.attendance.path=/api/attendance/today
 hrm.api.holidays.path=/api/holidays
 hrm.api.notifications.path=/api/notifications/mine
+hrm.api.leave.request.create.path=/api/leave/request
 
 # 2. Tài khoản Microsoft SSO
 microsoft.username=your_email@gm-group.vn

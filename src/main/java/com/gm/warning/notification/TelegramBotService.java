@@ -87,6 +87,7 @@ public class TelegramBotService {
             commands.add(Map.of("command", "chamcong", "description", "Xem chi tiết chấm công trong tháng"));
             commands.add(Map.of("command", "phep", "description", "Xem số ngày phép năm, đã dùng, còn lại"));
             commands.add(Map.of("command", "donnghi", "description", "Xem danh sách đơn nghỉ phép, Remote"));
+            commands.add(Map.of("command", "taodon", "description", "Tạo đơn xin nghỉ phép mới"));
             commands.add(Map.of("command", "ot", "description", "Xem danh sách đơn làm thêm giờ (OT)"));
             commands.add(Map.of("command", "help", "description", "Hướng dẫn sử dụng"));
 
@@ -196,6 +197,10 @@ public class TelegramBotService {
             } else if (lower.startsWith("/donnghi") || lower.startsWith("/don") || lower.startsWith("/remote")
                     || lower.startsWith("đơn nghỉ") || lower.startsWith("don nghi") || lower.startsWith("đơn") || lower.startsWith("don")) {
                 handleLeaveRequestsCommand();
+            } else if (lower.startsWith("/taodon") || lower.startsWith("/xinnghi") || lower.startsWith("/taodonnghi")
+                    || lower.startsWith("/nghi") || lower.startsWith("tạo đơn") || lower.startsWith("tao don")
+                    || lower.startsWith("xin nghỉ") || lower.startsWith("xin nghi")) {
+                handleCreateLeaveCommand(clean);
             } else if (lower.startsWith("/ot") || lower.startsWith("/tangca") || lower.startsWith("/overtime")
                     || lower.startsWith("tăng ca") || lower.startsWith("tang ca") || lower.startsWith("làm thêm") || lower.startsWith("lam them")) {
                 handleOvertimeCommand();
@@ -310,5 +315,215 @@ public class TelegramBotService {
     private void handleOvertimeCommand() {
         List<OvertimeItem> otList = hrmApiClient.fetchOvertimeRequests();
         telegramNotifier.sendMessage(TelegramTemplate.overtimeRequestsSummary(otList));
+    }
+
+    private void handleCreateLeaveCommand(String rawText) {
+        String text = rawText
+                .replaceAll("(?i)^(/taodonnghi|/taodon|/xinnghi|/nghi|tạo đơn nghỉ|tao don nghi|tạo đơn|tao don|xin nghỉ|xin nghi)", "")
+                .trim();
+
+        if (text.isEmpty() || text.equalsIgnoreCase("help") || text.equalsIgnoreCase("hướng dẫn") || text.equalsIgnoreCase("huong dan")) {
+            telegramNotifier.sendMessage(TelegramTemplate.createLeaveHelpMessage());
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        int defaultYear = today.getYear();
+
+        LocalDate startDate = null;
+        LocalDate endDate = null;
+        int nextIndex = 0;
+
+        String[] tokens = text.split("\\s+");
+        if (tokens.length == 0) {
+            telegramNotifier.sendMessage(TelegramTemplate.createLeaveHelpMessage());
+            return;
+        }
+
+        // Trường hợp 1: tokens[0] dạng dải ngày (ví dụ: 17/11-19/11 hoặc 17/11->19/11)
+        if (tokens[0].contains("->") || tokens[0].contains("➜")) {
+            String delimiter = tokens[0].contains("->") ? "->" : "➜";
+            String[] parts = tokens[0].split(delimiter);
+            if (parts.length == 2) {
+                LocalDate d1 = parseDateToken(parts[0], defaultYear);
+                LocalDate d2 = parseDateToken(parts[1], defaultYear);
+                if (d1 != null && d2 != null) {
+                    startDate = d1;
+                    endDate = d2;
+                    nextIndex = 1;
+                }
+            }
+        } else if (tokens[0].contains("/") && tokens[0].contains("-")) {
+            String[] parts = tokens[0].split("-");
+            if (parts.length == 2) {
+                LocalDate d1 = parseDateToken(parts[0], defaultYear);
+                LocalDate d2 = parseDateToken(parts[1], defaultYear);
+                if (d1 != null && d2 != null) {
+                    startDate = d1;
+                    endDate = d2;
+                    nextIndex = 1;
+                }
+            }
+        }
+
+        // Trường hợp 2: Kiểm tra từ ghép ngày (ví dụ: "hôm nay", "ngày mai")
+        if (startDate == null) {
+            if (tokens.length >= 2) {
+                String twoTokens = (tokens[0] + " " + tokens[1]).toLowerCase();
+                LocalDate dateTwo = parseDateToken(twoTokens, defaultYear);
+                if (dateTwo != null) {
+                    startDate = dateTwo;
+                    nextIndex = 2;
+                }
+            }
+        }
+
+        // Trường hợp 3: tokens[0] là 1 ngày đơn lẻ
+        if (startDate == null) {
+            startDate = parseDateToken(tokens[0], defaultYear);
+            if (startDate != null) {
+                nextIndex = 1;
+
+                // Kiểm tra xem token tiếp theo có phải ngày kết thúc không (ví dụ: 17/11 19/11 hoặc 17/11 đến 19/11)
+                if (tokens.length > nextIndex) {
+                    String tNext = tokens[nextIndex].toLowerCase();
+                    if (tNext.equals("-") || tNext.equals("->") || tNext.equals("đến") || tNext.equals("den") || tNext.equals("to")) {
+                        if (tokens.length > nextIndex + 1) {
+                            LocalDate d2 = parseDateToken(tokens[nextIndex + 1], defaultYear);
+                            if (d2 != null) {
+                                endDate = d2;
+                                nextIndex += 2;
+                            }
+                        }
+                    } else {
+                        LocalDate d2 = parseDateToken(tokens[nextIndex], defaultYear);
+                        if (d2 != null) {
+                            endDate = d2;
+                            nextIndex++;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (startDate == null) {
+            telegramNotifier.sendMessage("⚠️ <b>Không nhận diện được ngày nghỉ hợp lệ!</b>\n\nVí dụ: <code>/taodon 17/11</code> hoặc <code>/taodon 17/11/2026 Bận việc</code>\n\nGõ <code>/taodon help</code> để xem hướng dẫn chi tiết.");
+            return;
+        }
+
+        if (endDate == null) {
+            endDate = startDate;
+        } else if (endDate.isBefore(startDate)) {
+            LocalDate tmp = startDate;
+            startDate = endDate;
+            endDate = tmp;
+        }
+
+        // Gom các token còn lại để phân tích Buổi (leaveType), Loại nghỉ (leaveCategory), Lý do (reason)
+        StringBuilder remaining = new StringBuilder();
+        for (int i = nextIndex; i < tokens.length; i++) {
+            if (!remaining.isEmpty()) remaining.append(" ");
+            remaining.append(tokens[i]);
+        }
+        String remStr = remaining.toString().trim();
+
+        String leaveType = "FULL_DAY";
+        String leaveCategory = "ANNUAL";
+
+        // Nhận diện buổi (sáng / chiều)
+        String lowerRem = remStr.toLowerCase();
+        if (lowerRem.contains("sáng") || lowerRem.contains("sang") || lowerRem.contains("morning")) {
+            leaveType = "MORNING";
+            remStr = remStr.replaceAll("(?i)\\b(sáng|sang|morning)\\b", "").trim();
+        } else if (lowerRem.contains("chiều") || lowerRem.contains("chieu") || lowerRem.contains("afternoon")) {
+            leaveType = "AFTERNOON";
+            remStr = remStr.replaceAll("(?i)\\b(chiều|chieu|afternoon)\\b", "").trim();
+        } else if (lowerRem.contains("cả ngày") || lowerRem.contains("ca ngay") || lowerRem.contains("full_day") || lowerRem.contains("full")) {
+            leaveType = "FULL_DAY";
+            remStr = remStr.replaceAll("(?i)\\b(cả ngày|ca ngay|full_day|full)\\b", "").trim();
+        }
+
+        // Nhận diện loại nghỉ
+        lowerRem = remStr.toLowerCase();
+        if (lowerRem.contains("không lương") || lowerRem.contains("khong luong") || lowerRem.contains("unpaid")) {
+            leaveCategory = "UNPAID";
+            remStr = remStr.replaceAll("(?i)\\b(không lương|khong luong|unpaid)\\b", "").trim();
+        } else if (lowerRem.contains("nghỉ ốm") || lowerRem.contains("nghi om") || lowerRem.contains("sick")) {
+            leaveCategory = "SICK";
+            remStr = remStr.replaceAll("(?i)\\b(nghỉ ốm|nghi om|sick)\\b", "").trim();
+        }
+
+        // Dọn dẹp dấu câu thừa ở đầu lý do (ví dụ: "-", ",", ":")
+        remStr = remStr.replaceAll("^[\\s,\\-:]+", "").trim();
+        String reason = remStr.isEmpty() ? "Việc cá nhân" : remStr;
+
+        String startStr = startDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+        String endStr = endDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE);
+
+        log.info("Xử lý lệnh tạo đơn nghỉ: start={}, end={}, type={}, cat={}, reason='{}'",
+                startStr, endStr, leaveType, leaveCategory, reason);
+
+        telegramNotifier.sendMessage("⏳ <i>Đang gửi yêu cầu tạo đơn nghỉ phép tới hệ thống HRM...</i>");
+
+        com.gm.warning.model.CreateLeaveResult result = hrmApiClient.createLeaveRequest(
+                startStr, endStr, leaveType, leaveCategory, reason
+        );
+
+        if (result != null && result.isSuccess()) {
+            telegramNotifier.sendMessage(TelegramTemplate.createLeaveSuccess(startStr, endStr, leaveType, leaveCategory, reason));
+        } else {
+            String errMsg = result != null ? result.getMessage() : "Không thể kết nối đến máy chủ HRM";
+            telegramNotifier.sendMessage(TelegramTemplate.createLeaveError(errMsg));
+        }
+    }
+
+    private LocalDate parseDateToken(String token, int defaultYear) {
+        if (token == null) return null;
+        token = token.trim().toLowerCase();
+        if (token.equals("hôm nay") || token.equals("hom nay") || token.equals("today")) {
+            return LocalDate.now();
+        }
+        if (token.equals("ngày mai") || token.equals("ngay mai") || token.equals("mai") || token.equals("tomorrow")) {
+            return LocalDate.now().plusDays(1);
+        }
+        try {
+            if (token.contains("/")) {
+                String[] parts = token.split("/");
+                if (parts.length == 2) {
+                    int d = Integer.parseInt(parts[0].trim());
+                    int m = Integer.parseInt(parts[1].trim());
+                    return LocalDate.of(defaultYear, m, d);
+                } else if (parts.length == 3) {
+                    int d = Integer.parseInt(parts[0].trim());
+                    int m = Integer.parseInt(parts[1].trim());
+                    int y = Integer.parseInt(parts[2].trim());
+                    if (y < 100) y += 2000;
+                    return LocalDate.of(y, m, d);
+                }
+            } else if (token.contains("-")) {
+                String[] parts = token.split("-");
+                if (parts.length == 3) {
+                    if (parts[0].trim().length() == 4) {
+                        return LocalDate.of(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[2].trim()));
+                    } else {
+                        int y = Integer.parseInt(parts[2].trim());
+                        if (y < 100) y += 2000;
+                        return LocalDate.of(y, Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[0].trim()));
+                    }
+                } else if (parts.length == 2) {
+                    return LocalDate.of(defaultYear, Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[0].trim()));
+                }
+            } else if (token.contains(".")) {
+                String[] parts = token.split("\\.");
+                if (parts.length == 2) {
+                    return LocalDate.of(defaultYear, Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[0].trim()));
+                } else if (parts.length == 3) {
+                    int y = Integer.parseInt(parts[2].trim());
+                    if (y < 100) y += 2000;
+                    return LocalDate.of(y, Integer.parseInt(parts[1].trim()), Integer.parseInt(parts[0].trim()));
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

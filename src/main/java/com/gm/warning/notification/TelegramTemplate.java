@@ -551,9 +551,76 @@ public class TelegramTemplate {
                 "<i>Ví dụ:</i> <code>/phep</code> hoặc <code>/phep 2026</code>\n\n" +
                 "📋 <b>/donnghi</b>\n" +
                 "<i>Xem danh sách chi tiết các đơn xin nghỉ phép, Remote gần đây.</i>\n\n" +
+                "📝 <b>/taodon</b> [ngày] [buổi] [lý do]\n" +
+                "<i>Tạo đơn xin nghỉ phép mới gửi lên HRM.</i>\n" +
+                "<i>Ví dụ:</i> <code>/taodon 17/11</code> hoặc <code>/taodon 17/11 sáng Bận việc</code>\n\n" +
                 "⏰ <b>/ot</b>\n" +
                 "<i>Xem danh sách đăng ký làm thêm giờ (OT), số giờ và trạng thái duyệt.</i>\n\n" +
                 "❓ <b>/help</b> - <i>Xem hướng dẫn này.</i>";
+    }
+
+    /**
+     * Thông báo tạo đơn xin nghỉ phép thành công
+     */
+    public static String createLeaveSuccess(String startDate, String endDate, String leaveType, String leaveCategory, String reason) {
+        String typeStr = switch (leaveType != null ? leaveType.toUpperCase() : "FULL_DAY") {
+            case "MORNING" -> "Buổi sáng";
+            case "AFTERNOON" -> "Buổi chiều";
+            default -> "Cả ngày";
+        };
+
+        String catStr = switch (leaveCategory != null ? leaveCategory.toUpperCase() : "ANNUAL") {
+            case "ANNUAL" -> "Nghỉ phép năm";
+            case "UNPAID" -> "Nghỉ không lương";
+            case "SICK" -> "Nghỉ ốm";
+            default -> leaveCategory;
+        };
+
+        String dateStr = startDate;
+        if (endDate != null && !endDate.isBlank() && !endDate.equals(startDate)) {
+            dateStr += " ➜ " + endDate;
+        }
+
+        return SEPARATOR + "\n" +
+                "✅ <b>TẠO ĐƠN NGHỈ PHÉP THÀNH CÔNG!</b>\n\n" +
+                "<blockquote>📅 Thời gian: <b>" + dateStr + "</b> (" + typeStr + ")\n" +
+                "🏷 Loại nghỉ: <b>" + catStr + "</b>\n" +
+                "📝 Lý do: <i>" + escapeHtml(reason) + "</i>\n" +
+                "⏳ Trạng thái: <b>Chờ duyệt (PENDING)</b></blockquote>\n\n" +
+                "💡 <i>Đơn đã được gửi lên hệ thống HRM và đang chờ Quản lý phê duyệt.</i>";
+    }
+
+    /**
+     * Thông báo tạo đơn xin nghỉ phép thất bại
+     */
+    public static String createLeaveError(String errorMessage) {
+        return SEPARATOR + "\n" +
+                "❌ <b>TẠO ĐƠN NGHỈ PHÉP THẤT BẠI!</b>\n\n" +
+                "<blockquote>⚠️ Phản hồi từ HRM:\n<b>" + escapeHtml(errorMessage) + "</b></blockquote>\n\n" +
+                "👉 <i>Vui lòng kiểm tra lại số dư ngày phép bằng lệnh <code>/phep</code> hoặc kiểm tra lại ngày nghỉ không bị trùng.</i>";
+    }
+
+    /**
+     * Hướng dẫn cú pháp tạo đơn xin nghỉ phép
+     */
+    public static String createLeaveHelpMessage() {
+        return SEPARATOR + "\n" +
+                "📝 <b>HƯỚNG DẪN TẠO ĐƠN NGHỈ PHÉP</b>\n\n" +
+                "<b>Cú pháp:</b>\n" +
+                "<code>/taodon &lt;ngày&gt; [buổi] [lý do]</code>\n" +
+                "hoặc:\n" +
+                "<code>/taodon &lt;từ ngày&gt; &lt;đến ngày&gt; [lý do]</code>\n\n" +
+                "<b>Tham số:</b>\n" +
+                "• <b>Ngày</b>: <code>17/11</code> hoặc <code>17/11/2026</code> <i>(mặc định năm hiện tại)</i>\n" +
+                "• <b>Buổi</b>: <code>sáng</code>, <code>chiều</code> <i>(mặc định: cả ngày)</i>\n" +
+                "• <b>Lý do</b>: Tùy ý <i>(mặc định: Việc cá nhân)</i>\n\n" +
+                "<b>Ví dụ mẫu:</b>\n" +
+                "• <code>/taodon 17/11</code> <i>(Nghỉ cả ngày 17/11)</i>\n" +
+                "• <code>/taodon 17/11 Bận việc gia đình</code>\n" +
+                "• <code>/taodon 17/11 sáng Khám sức khỏe</code> <i>(Nghỉ ca sáng)</i>\n" +
+                "• <code>/taodon 17/11 chiều Đi việc gia đình</code> <i>(Nghỉ ca chiều)</i>\n" +
+                "• <code>/taodon 17/11 19/11 Về quê ăn cưới</code> <i>(Nghỉ từ 17 đến 19/11)</i>\n" +
+                "• <code>/taodon 17/11-19/11 Đi du lịch</code>";
     }
 
     private static String escapeHtml(String text) {

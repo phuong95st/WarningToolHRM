@@ -23,6 +23,7 @@ public class AppConfig {
     private String notificationsApiPath;
     private String leaveBalanceApiPath;
     private String leaveRequestsApiPath;
+    private String createLeaveApiPath;
     private String overtimeApiPath;
     private String attendanceSummaryApiPath;
     private String employeeId;
@@ -88,6 +89,7 @@ public class AppConfig {
         notificationsApiPath = getProperty("hrm.api.notifications.path", "/api/notifications/mine");
         leaveBalanceApiPath = getProperty("hrm.api.leave.balance.path", "/api/leave/balance");
         leaveRequestsApiPath = getProperty("hrm.api.leave.requests.path", "/api/leave/requests/mine");
+        createLeaveApiPath = getProperty("hrm.api.leave.request.create.path", "/api/leave/request");
         overtimeApiPath = getProperty("hrm.api.overtime.path", "/api/overtime/requests/mine");
         attendanceSummaryApiPath = getProperty("hrm.api.attendance.summary.path", "/api/attendance/summary/employee");
         employeeId = getProperty("hrm.employee.id", "");
@@ -162,6 +164,7 @@ public class AppConfig {
     public String getNotificationsApiPath() { return notificationsApiPath; }
     public String getLeaveBalanceApiPath() { return leaveBalanceApiPath; }
     public String getLeaveRequestsApiPath() { return leaveRequestsApiPath; }
+    public String getCreateLeaveApiPath() { return createLeaveApiPath; }
     public String getOvertimeApiPath() { return overtimeApiPath; }
     public String getAttendanceSummaryApiPath() { return attendanceSummaryApiPath; }
     public String getEmployeeId() { return employeeId; }
